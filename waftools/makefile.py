@@ -356,7 +356,7 @@ export RPATH:=
 export BINDIR:=
 export LIBDIR:=
 
-SEARCHPATH=modules/
+SEARCHPATH=components/
 SEARCHFILE=Makefile
 
 #------------------------------------------------------------------------------
@@ -450,12 +450,12 @@ uninstall: $(uninstall_targets)
 
 list:
 	@echo ""
-	$(foreach cmd,$(commands),echo "  $(cmd)";)
+	@$(foreach cmd,$(commands),echo "  $(cmd)";)
 	@echo ""
 
 modules:
 	@echo ""
-	$(foreach module,$(modules),echo "  $(module)";)
+	@$(foreach module,$(modules),echo "  $(module)";)
 	@echo ""
 
 find:
@@ -464,7 +464,7 @@ find:
 	@echo "  path=$(SEARCHPATH) file=$(SEARCHFILE)"
 	@echo ""
 	@echo "result:"
-	$(call dofind,$(SEARCHPATH),$(SEARCHFILE))
+	@$(call dofind,$(SEARCHPATH),$(SEARCHFILE))
 	@echo ""
 
 help:
