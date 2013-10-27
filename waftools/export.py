@@ -27,7 +27,7 @@ def options(opt):
 		action='store_true', 
 		help='export makefiles.')
 
-		
+
 def configure(conf): 
 	conf.env.EXPORT_FORMATS = []
 	if conf.options.export_codeblocks:
