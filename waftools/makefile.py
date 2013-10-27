@@ -2,9 +2,6 @@
 # -*- encoding: utf-8 -*-
 # Michel Mooij, michel.mooij7@gmail.com
 
-# shell colors
-# @echo -e "[0;32m$2: $1[0m"
-
 import os
 import re
 from waflib import Utils, Node, Tools
