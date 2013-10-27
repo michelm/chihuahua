@@ -1,0 +1,11 @@
+#!/usr/bin/env python
+# -*- encoding: utf-8 -*-
+
+def build(bld):
+	bld.stlib(
+		target='cstlib',
+		source=bld.path.ant_glob('src/*.c'),
+		includes=['./include'],
+		export_includes=['./include']
+	)
+
