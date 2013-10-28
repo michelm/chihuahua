@@ -118,13 +118,13 @@ def task_process(self):
 
 def build_postfun(self):
 	self.export = Export(self)
-	
+
+	if self.options.export_cleanup:
+		makefile.cleanup(self)
+
 	formats = self.env.EXPORT_FORMATS
 	if 'makefile' in formats or self.options.export_makefile:
-		if self.options.export_cleanup:
-			makefile.cleanup(self)
-		else:
-			makefile.export(self)
+		makefile.export(self)
 	
 	if 'codeblocks' in formats or self.options.export_codeblocks:
 		print 'TODO: codeblocks'
