@@ -1,0 +1,10 @@
+#!/usr/bin/env python
+# -*- encoding: utf-8 -*-
+
+def build(bld):
+	bld.program(
+		target='cxxprogram', 
+		source=bld.path.ant_glob('src/*.cpp'),
+		use=['cxxstlib','cxxshlib'],
+	)
+
