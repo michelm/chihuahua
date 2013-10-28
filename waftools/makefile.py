@@ -151,13 +151,17 @@ class MakeChild(Make):
 	def get_content(self):		
 		if 'cprogram' in self.gen.features:
 			return self._get_cprogram_content()
-		elif 'cxxprogram' in self.gen.features:
-			return self._get_cxxprogram_content()
 		elif 'cstlib' in self.gen.features:
 			return self._get_cstlib_content()
 		elif 'cshlib' in self.gen.features:
 			return self._get_cshlib_content()
-		
+		elif 'cxxprogram' in self.gen.features:
+			return self._get_cxxprogram_content()
+		elif 'cxxstlib' in self.gen.features:
+			return self._get_cxxstlib_content()
+		elif 'cxxshlib' in self.gen.features:
+			return self._get_cxxshlib_content()
+
 		s = MAKEFILE_CHILD
 		s = super(MakeChild, self).populate(s)		
 		return s
@@ -273,7 +277,49 @@ class MakeChild(Make):
 		s = re.sub('LIBPATH_SH\+=', 'LIBPATH_SH+=%s' % self._get_libpath('shared'),s)
 		s = re.sub('LIB_SH\+=', 'LIB_SH+=%s' % self._get_lib('shared'),s)
 		return s
-	
+
+	def _get_cxxstlib_content(self):
+		bld = self.bld
+		gen = self.gen
+		source = self._get_genlist(gen, 'source')
+		includes = self._get_genlist(gen, 'includes')
+		defines = self._get_defines(gen)
+		defines = [d for d in defines]
+		s = MAKEFILE_CXXSTLIB
+		s = super(MakeChild, self).populate(s)
+		name = bld.env.cxxstlib_PATTERN % gen.get_name()
+		s = re.sub('LIB=', 'LIB=%s' % name, s)
+		s = re.sub('SOURCES=', 'SOURCES= \\\n\t%s' % ' \\\n\t'.join(source), s)
+		s = re.sub('INCLUDES\+=', 'INCLUDES+= \\\n\t%s' % ' \\\n\t'.join(includes),s)
+		s = re.sub('DEFINES\+=', 'DEFINES+=%s' % ' '.join(defines),s)
+		s = re.sub('CXXFLAGS\+=', 'CXXFLAGS+=%s' % self._get_cxxflags(gen),s)
+		s = re.sub('ARFLAGS=', 'ARFLAGS=%s' % bld.env.ARFLAGS, s)
+		return s
+
+	def _get_cxxshlib_content(self):
+		bld = self.bld
+		gen = self.gen
+		source = self._get_genlist(gen, 'source')
+		includes = self._get_genlist(gen, 'includes')
+		defines = self._get_defines(gen)
+		defines = [d for d in defines]
+		s = MAKEFILE_CXXSHLIB
+		s = super(MakeChild, self).populate(s)
+		name = bld.env.cxxshlib_PATTERN % gen.get_name()
+		vnum = getattr(gen, 'vnum', '')
+		s = re.sub('LIB=', 'LIB=%s' % name, s)
+		s = re.sub('VNUM=', 'VNUM=%s' % vnum, s)
+		s = re.sub('SOURCES=', 'SOURCES= \\\n\t%s' % ' \\\n\t'.join(source), s)
+		s = re.sub('INCLUDES\+=', 'INCLUDES+= \\\n\t%s' % ' \\\n\t'.join(includes),s)
+		s = re.sub('DEFINES\+=', 'DEFINES+=%s' % ' '.join(defines),s)
+		s = re.sub('CXXFLAGS\+=', 'CXXFLAGS+=%s' % self._get_cxxflags(gen),s)
+		s = re.sub('LINKFLAGS\+=', 'LINKFLAGS+=%s' % self._get_linkflags(gen),s)
+		s = re.sub('LIBPATH_ST\+=', 'LIBPATH_ST+=%s' % self._get_libpath('static'),s)
+		s = re.sub('LIB_ST\+=', 'LIB_ST+=%s' % self._get_lib('static'),s)
+		s = re.sub('LIBPATH_SH\+=', 'LIBPATH_SH+=%s' % self._get_libpath('shared'),s)
+		s = re.sub('LIB_SH\+=', 'LIB_SH+=%s' % self._get_lib('shared'),s)
+		return s
+
 	def _get_genlist(self, gen, name):
 		lst = Utils.to_list(getattr(gen, name, []))
 		return [l.path_from(gen.path) if isinstance(l, Node.Nod3) else l for l in lst]
@@ -986,3 +1032,221 @@ $(OBJECTS): $(HEADERS)
 
 '''
 
+MAKEFILE_CXXSHLIB = \
+'''#------------------------------------------------------------------------------
+# CHIHUAHUA generated makefile
+# version: ==VERSION==
+# waf: ==WAFVERSION==
+#------------------------------------------------------------------------------
+
+SHELL=/bin/sh
+
+# commas, spaces and tabs:
+sp:= 
+sp+= 
+tab:=$(sp)$(sp)$(sp)$(sp)
+comma:=,
+
+#------------------------------------------------------------------------------
+# definition of build and install locations
+#------------------------------------------------------------------------------
+ifeq ($(TOP),)
+TOP=$(CURDIR)
+OUT=$(TOP)/build
+else
+OUT=$(subst $(sp),/,$(call rptotop) build $(call rpofcomp))
+endif
+
+PREFIX?=$(HOME)
+LIBDIR?=$(PREFIX)/lib
+
+#------------------------------------------------------------------------------
+# component data
+#------------------------------------------------------------------------------
+LIB=
+OUTPUT=$(OUT)/$(LIB)
+
+VNUM=
+
+# REMARK: use $(wildcard src/*.cpp) to include all sources.
+SOURCES= 
+
+OBJECTS=$(SOURCES:.cpp=.1.o)
+
+DEFINES+=
+DEFINES:=$(addprefix -D,$(DEFINES))
+
+INCLUDES+=
+
+HEADERS:=$(foreach inc,$(INCLUDES),$(wildcard $(inc)/*.h))
+INCLUDES:=$(addprefix -I,$(INCLUDES))
+
+CXXFLAGS+= 
+
+LINKFLAGS+= 
+
+RPATH+=
+RPATH:= $(addprefix -Wl$(comma)-rpath$(comma),$(RPATH))
+
+LIBPATH_ST+=
+LIBPATH_ST:= $(addprefix -L,$(LIBPATH_ST))
+
+LIB_ST+=
+LIB_ST:= $(addprefix -l,$(LIB_ST))
+
+LIBPATH_SH+=
+LIBPATH_SH:= $(addprefix -L,$(LIBPATH_SH))
+
+LINK_ST= -Wl,-Bstatic $(LIBPATH_ST) $(LIB_ST)
+
+LIB_SH+=
+LIB_SH:= $(addprefix -l,$(LIB_SH))
+
+LINK_SH= -Wl,-Bdynamic $(LIBPATH_SH) $(LIB_SH)
+
+#------------------------------------------------------------------------------
+# returns the relative path of this component from the top directory
+#------------------------------------------------------------------------------
+define rpofcomp
+$(subst $(subst ~,$(HOME),$(TOP))/,,$(CURDIR))
+endef
+
+#------------------------------------------------------------------------------
+# returns the relative path of this component to the top directory
+#------------------------------------------------------------------------------
+define rptotop
+$(foreach word,$(subst /,$(sp),$(call rpofcomp)),..)
+endef
+
+#------------------------------------------------------------------------------
+# define targets
+#------------------------------------------------------------------------------
+commands= build clean install uninstall all
+
+.DEFAULT_GOAL=all
+
+#------------------------------------------------------------------------------
+# definitions of recipes (i.e. make targets)
+#------------------------------------------------------------------------------
+all: build
+	
+build: $(OBJECTS)
+	$(CXX) $(LINKFLAGS) $(addprefix $(OUT)/,$(OBJECTS)) -o $(OUTPUT) $(RPATH) $(LINK_ST) $(LINK_SH)
+
+clean:
+	$(foreach obj,$(OBJECTS),rm -f $(OUT)/$(obj);)	
+	rm -f $(OUTPUT)
+
+install: build
+	mkdir -p $(LIBDIR)
+	cp $(OUTPUT) $(LIBDIR)
+ifneq ($(VNUM),)
+	ln -s -f $(LIBDIR)/$(LIB) $(LIBDIR)/$(LIB).$(VNUM)
+endif
+
+uninstall:
+ifneq ($(VNUM),)
+	rm -f $(LIBDIR)/$(LIB).$(VNUM)
+endif
+	rm -f $(LIBDIR)/$(LIB)
+
+$(OBJECTS): $(HEADERS)
+	mkdir -p $(OUT)/$(dir $@)
+	$(CXX) $(CXXFLAGS) $(INCLUDES) $(DEFINES) $(subst .1.o,.cpp,$@) -c -o $(OUT)/$@
+
+.PHONY: $(commands)
+
+'''
+
+MAKEFILE_CXXSTLIB = \
+'''#------------------------------------------------------------------------------
+# CHIHUAHUA generated makefile
+# version: ==VERSION==
+# waf: ==WAFVERSION==
+#------------------------------------------------------------------------------
+
+SHELL=/bin/sh
+
+# commas, spaces and tabs:
+sp:= 
+sp+= 
+tab:=$(sp)$(sp)$(sp)$(sp)
+comma:=,
+
+#------------------------------------------------------------------------------
+# definition of build and install locations
+#------------------------------------------------------------------------------
+ifeq ($(TOP),)
+TOP=$(CURDIR)
+OUT=$(TOP)/build
+else
+OUT=$(subst $(sp),/,$(call rptotop) build $(call rpofcomp))
+endif
+
+#------------------------------------------------------------------------------
+# component data
+#------------------------------------------------------------------------------
+LIB=
+OUTPUT=$(OUT)/$(LIB)
+
+# REMARK: use $(wildcard src/*.cpp) to include all sources.
+SOURCES= 
+
+OBJECTS=$(SOURCES:.cpp=.1.o)
+
+DEFINES+=
+DEFINES:=$(addprefix -D,$(DEFINES))
+
+INCLUDES+=
+
+HEADERS:=$(foreach inc,$(INCLUDES),$(wildcard $(inc)/*.h))
+INCLUDES:=$(addprefix -I,$(INCLUDES))
+
+CXXFLAGS+=
+
+ARFLAGS=
+
+#------------------------------------------------------------------------------
+# returns the relative path of this component from the top directory
+#------------------------------------------------------------------------------
+define rpofcomp
+$(subst $(subst ~,$(HOME),$(TOP))/,,$(CURDIR))
+endef
+
+#------------------------------------------------------------------------------
+# returns the relative path of this component to the top directory
+#------------------------------------------------------------------------------
+define rptotop
+$(foreach word,$(subst /,$(sp),$(call rpofcomp)),..)
+endef
+
+#------------------------------------------------------------------------------
+# define targets
+#------------------------------------------------------------------------------
+commands= build clean install uninstall all
+
+.DEFAULT_GOAL=all
+
+#------------------------------------------------------------------------------
+# definitions of recipes (i.e. make targets)
+#------------------------------------------------------------------------------
+all: build
+	
+build: $(OBJECTS)
+	$(AR) $(ARFLAGS) $(OUTPUT) $(addprefix $(OUT)/,$(OBJECTS))
+
+clean:
+	$(foreach obj,$(OBJECTS),rm -f $(OUT)/$(obj);)	
+	rm -f $(OUTPUT)
+
+install:
+	
+uninstall:
+
+$(OBJECTS): $(HEADERS)
+	mkdir -p $(OUT)/$(dir $@)
+	$(CXX) $(CXXFLAGS) $(INCLUDES) $(DEFINES) $(subst .1.o,.cpp,$@) -c -o $(OUT)/$@
+
+.PHONY: $(commands)
+
+'''
