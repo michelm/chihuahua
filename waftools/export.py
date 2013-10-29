@@ -5,6 +5,7 @@
 import os
 from waflib import Build, Logs, Scripting, Task, Context
 import makefile
+import codeblocks
 
 VERSION='0.0.2'
 
@@ -121,11 +122,13 @@ def build_postfun(self):
 
 	if self.options.export_cleanup:
 		makefile.cleanup(self)
+		codeblocks.cleanup(self)
 
-	formats = self.env.EXPORT_FORMATS
-	if 'makefile' in formats or self.options.export_makefile:
-		makefile.export(self)
+	else:
+		formats = self.env.EXPORT_FORMATS
+		if 'makefile' in formats or self.options.export_makefile:
+			makefile.export(self)
 	
-	if 'codeblocks' in formats or self.options.export_codeblocks:
-		print 'TODO: codeblocks'
+		if 'codeblocks' in formats or self.options.export_codeblocks:
+			codeblocks.export(self)
 

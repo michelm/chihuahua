@@ -37,7 +37,7 @@ class Make(object):
 			return
 		node.write(content)
 			
-	def cleanup(self): 
+	def cleanup(self):
 		node = self.find_node()
 		if node:
 			node.delete()
@@ -45,13 +45,13 @@ class Make(object):
 	def find_node(self):
 		name = self.get_name()
 		if not name:
-			return None	
+			return None
 		return self.bld.srcnode.find_node(name)
 
 	def make_node(self):
 		name = self.get_name()
 		if not name:
-			return None	
+			return None
 		return self.bld.srcnode.make_node(name)
 		
 	def populate(self, content):
@@ -60,12 +60,12 @@ class Make(object):
 		s = re.sub('==VERSION==', self.exp.version, s)
 		return s
 
-	def get_name(self): 
-		'''abstract operation to be define in child'''
+	def get_name(self):
+		'''abstract operation to be defined in child'''
 		return None
 
 	def get_content(self):
-		'''abstract operation to be define in child'''
+		'''abstract operation to be defined in child'''
 		return None
 
 
@@ -322,7 +322,8 @@ class MakeChild(Make):
 
 	def _get_genlist(self, gen, name):
 		lst = Utils.to_list(getattr(gen, name, []))
-		return [l.path_from(gen.path) if isinstance(l, Node.Nod3) else l for l in lst]
+		lst = [l.path_from(gen.path) if isinstance(l, Node.Nod3) else l for l in lst]
+		return [l.replace('\\', '/') for l in lst]
 
 	def _get_defines(self, gen):
 		defines = []
