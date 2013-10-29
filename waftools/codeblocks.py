@@ -242,7 +242,9 @@ class CBProject(CodeBlocks):
 	def _get_compiler_defines(self):
 		gen = self.gen
 		defines = self._get_genlist(gen, 'defines')
-		return [d.replace('"', '\\"') for d in defines]
+		# TODO: code::blocks version 10.05 needs double backslashes as 
+		# escape in string defines
+		return [d.replace('"', '\\\\"') for d in defines]
 
 	def _get_link_options(self):
 		bld = self.bld
