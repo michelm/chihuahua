@@ -104,36 +104,36 @@ except ImportError, e:
 
 
 def options(opt):
-	opt.add_option('--cppcheck-skip', dest='cppcheck_skip', 
-		default=False, action='store_true', 
+	opt.add_option('--cppcheck-skip', dest='cppcheck_skip',
+		default=False, action='store_true',
 		help='do not check C/C++ sources (default=False)')
 
-	opt.add_option('--cppcheck-err-resume', dest='cppcheck_err_resume', 
-		default=False, action='store_true', 
+	opt.add_option('--cppcheck-err-resume', dest='cppcheck_err_resume',
+		default=False, action='store_true',
 		help='continue in case of errors (default=False)')
 
-	opt.add_option('--cppcheck-bin-enable', dest='cppcheck_bin_enable', 
+	opt.add_option('--cppcheck-bin-enable', dest='cppcheck_bin_enable',
 		default='warning,performance,portability,style,unusedFunction', action='store',
 		help="cppcheck option '--enable=' for binaries (default=warning,performance,portability,style,unusedFunction)")
 
-	opt.add_option('--cppcheck-lib-enable', dest='cppcheck_lib_enable', 
-		default='warning,performance,portability,style', action='store', 
+	opt.add_option('--cppcheck-lib-enable', dest='cppcheck_lib_enable',
+		default='warning,performance,portability,style', action='store',
 		help="cppcheck option '--enable=' for libraries (default=warning,performance,portability,style)")
 
 	opt.add_option('--cppcheck-std-c', dest='cppcheck_std_c',
-		default='c99', action='store', 
+		default='c99', action='store',
 		help='cppcheck standard to use when checking C (default=c99)')
 
 	opt.add_option('--cppcheck-std-cxx', dest='cppcheck_std_cxx',
-		default='c++03', action='store', 
+		default='c++03', action='store',
 		help='cppcheck standard to use when checking C++ (default=c++03)')
 
-	opt.add_option('--cppcheck-check-config', dest='cppcheck_check_config', 
-		default=False, action='store_true', 
+	opt.add_option('--cppcheck-check-config', dest='cppcheck_check_config',
+		default=False, action='store_true',
 		help='forced check for missing buildin include files, e.g. stdio.h (default=False)')
 
 	opt.add_option('--cppcheck-max-configs', dest='cppcheck_max_configs',
-		default='20', action='store', 
+		default='20', action='store',
 		help='maximum preprocessor (--max-configs) define iterations (default=20)')
 
 
@@ -203,24 +203,38 @@ class cppcheck(Task.Task):
 
 	def run(self):
 		stderr = self.generator.bld.cmd_and_log(self.cmd, quiet=Context.STDERR, output=Context.STDERR)
-		self._save_xml_report(stderr)
+		
+		prefix = 'reports/cppcheck'
+		if not os.path.exists(prefix):
+			os.makedirs(prefix)
+		
+		self._save_xml_report(stderr, prefix)
 		defects = self._get_defects(stderr)
-		index = self._create_html_report(defects)
+		index = self._create_html_report(defects, prefix)
 		self._errors_evaluate(defects, index)
 		return 0
 
-	def _save_xml_report(self, s):
-		'''use cppcheck xml result string, add the command string used to invoke cppcheck
-		and save as xml file.
+	def _save_xml_report(self, stderr, prefix):
+		'''Save the the errors reported by cppcheck.
+				
+		Uses the errors reported by cppcheck on STDERR output in XML format, adds the actual
+		command including arguments to it, and finally saves it as a XML file.
+		
+		stderr = string containing CPPCHECK error report in XML format
+		prefix = path relative from top directory where the report should be stored.
+		
 		'''
-		header = '%s\n' % s.split('\n')[0]
-		root = ElementTree.fromstring(s)
+		header = '%s\n' % stderr.split('\n')[0]
+		root = ElementTree.fromstring(stderr)
 		cmd = ElementTree.SubElement(root.find('cppcheck'), 'cmd')
 		cmd.text = str(self.cmd)
 		body = ElementTree.tostring(root)
-		node = self.generator.path.get_bld().find_or_declare('cppcheck.xml')
-		node.write(header + body)
 
+		gen = self.generator
+		fname = '%s/%s/%s/cppcheck.xml' % (prefix, gen.path.relpath(), gen.get_name())
+		content = header + body		
+		self._save_file(fname, content)
+		
 	def _get_defects(self, xml_string):
 		'''evaluate the xml string returned by cppcheck (on sdterr) and use it to create
 		a list of defects.
@@ -238,13 +252,13 @@ class cppcheck(Task.Task):
 			defects.append(defect)
 		return defects
 
-	def _create_html_report(self, defects):
-		files, css_style_defs = self._create_html_files(defects)
-		index = self._create_html_index(files)
-		self._create_css_file(css_style_defs)
+	def _create_html_report(self, defects, prefix):
+		files, css_style_defs = self._create_html_files(defects, prefix)
+		index = self._create_html_index(files, prefix)
+		self._create_css_file(css_style_defs, prefix)
 		return index
 
-	def _create_html_files(self, defects):
+	def _create_html_files(self, defects, prefix):
 		sources = {}
 		defects = [defect for defect in defects if defect.has_key('file')]
 		for defect in defects:
@@ -254,20 +268,24 @@ class cppcheck(Task.Task):
 			else:
 				sources[name].append(defect)
 		
+		gen = self.generator
 		files = {}
 		css_style_defs = None
-		bpath = self.generator.path.get_bld().abspath()
 		names = sources.keys()
+		path = '%s/%s/%s' % (prefix, gen.path.relpath(), gen.get_name())
+		path = '%s/%s' % (os.getcwd(), path)
+		
 		for i in range(0,len(names)):
 			name = names[i]
 			htmlfile = 'cppcheck/%i.html' % (i)
 			errors = sources[name]
-			files[name] = { 'htmlfile': '%s/%s' % (bpath, htmlfile), 'errors': errors }
-			css_style_defs = self._create_html_file(name, htmlfile, errors)
+			files[name] = { 'htmlfile': '%s/%s' % (path, htmlfile), 'errors': errors }
+			css_style_defs = self._create_html_file(name, htmlfile, errors, prefix)
 		return files, css_style_defs
 
-	def _create_html_file(self, sourcefile, htmlfile, errors):
-		name = self.generator.get_name()
+	def _create_html_file(self, sourcefile, htmlfile, errors, prefix):
+		gen = self.generator
+		name = gen.get_name()
 		root = ElementTree.fromstring(CPPCHECK_HTML_FILE)
 		title = root.find('head/title')
 		title.text = 'cppcheck - report - %s' % name
@@ -295,12 +313,16 @@ class cppcheck(Task.Task):
 
 		s = ElementTree.tostring(root, method='html')
 		s = CCPCHECK_HTML_TYPE + s
-		node = self.generator.path.get_bld().find_or_declare(htmlfile)
-		node.write(s)
+		
+		fname = '%s/%s/%s/%s' % (prefix, gen.path.relpath(), gen.get_name(), htmlfile)
+		content = s
+		self._save_file(fname, content)
+		
 		return css_style_defs
 
-	def _create_html_index(self, files):
-		name = self.generator.get_name()
+	def _create_html_index(self, files, prefix):
+		gen = self.generator
+		name = gen.get_name()
 		root = ElementTree.fromstring(CPPCHECK_HTML_FILE)
 		title = root.find('head/title')
 		title.text = 'cppcheck - report - %s' % name
@@ -320,9 +342,10 @@ class cppcheck(Task.Task):
 
 		s = ElementTree.tostring(root, method='html')
 		s = CCPCHECK_HTML_TYPE + s
-		node = self.generator.path.get_bld().find_or_declare('cppcheck/index.html')
-		node.write(s)
-		return node
+		
+		fname = '%s/%s/%s/cppcheck/index.html' % (prefix, gen.path.relpath(), gen.get_name())		
+		content = s
+		return self._save_file(fname, content)
 
 	def _create_html_table(self, content, files):
 		table = ElementTree.fromstring(CPPCHECK_HTML_TABLE)
@@ -346,12 +369,14 @@ class cppcheck(Task.Task):
 				table.append(row)
 		content.append(table)
 
-	def _create_css_file(self, css_style_defs):
+	def _create_css_file(self, css_style_defs, prefix):
 		css = str(CPPCHECK_CSS_FILE)
 		if css_style_defs:
 			css = "%s\n%s\n" % (css, css_style_defs)
-		node = self.generator.path.get_bld().find_or_declare('cppcheck/style.css')
-		node.write(css)
+			
+		gen = self.generator
+		fname = '%s/%s/%s/cppcheck/style.css' % (prefix, gen.path.relpath(), gen.get_name())		
+		self._save_file(fname, css)
 
 	def _errors_evaluate(self, errors, http_index):
 		name = self.generator.get_name()
@@ -371,6 +396,22 @@ class cppcheck(Task.Task):
 			msg += "\n    file://%r" % http_index
 			msg += "\n"
 			Logs.error(msg)
+
+	def _save_file(self, fname, content):
+		'''Saves the content into file.
+		
+		fname = file name, including path
+		content = file contents
+		
+		Creates missing path in filename when needed.
+		''' 
+		path = os.path.dirname(fname)
+		if not os.path.exists(path):
+			os.makedirs(path)
+			
+		node = self.generator.bld.path.make_node(fname)
+		node.write(content)
+		return node
 
 
 class CppcheckHtmlFormatter(pygments.formatters.HtmlFormatter):
