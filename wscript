@@ -35,6 +35,7 @@ def options(opt):
 		action='store_true', 
 		help='Build with debug information.')
 
+	opt.load('cppcheck', tooldir='./waftools')
 	opt.load('export', tooldir='./waftools')
 
 
@@ -42,6 +43,7 @@ def configure(conf):
 	conf.check_waf_version(mini='1.7.0')
 	conf.load('compiler_c')
 	conf.load('compiler_cxx')
+	conf.load('cppcheck')
 	conf.load('export')
 	conf.env.CFLAGS = ['-Wall']
 	conf.env.CXXFLAGS = ['-Wall']
