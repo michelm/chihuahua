@@ -11,16 +11,16 @@ int main(int argc, char* argv[]) {
 
 	printf("start\n");
 
-	for(i=0; i < 6; i++) { // array out of bound
+	for(i=0; i < 6; i++) {
 		s[i] = 0;
 	}
 
-	s[c] = 4; // uninitialized variable + potential array out of bound
+	s[c] = 4;
 
 	while(1) {
-		leaking(); // leaks forever
+		leaking();
 		c++;
-		s[c] = 256; // array out of bound
+		s[c] = 256;
 	}
 
 	t = (char*)calloc(4, sizeof(char));
