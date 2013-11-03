@@ -1,7 +1,7 @@
 *.pyc
 *~
 .lock-waf*
-build/*
 .settings/*
-
+build/*
+reports/*
 
