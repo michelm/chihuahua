@@ -24,8 +24,8 @@ int main(int argc, char* argv[]) {
 	}
 
 	t = (char*)calloc(4, sizeof(char));
-	t[164] = 7; // array out of bound (runtime array size)
-	t[5] = 8; // array out of bound (runtime array size)
+	t[164] = 7; // array out of bound in dynamic allocated array; cppcheck will not detect this
+	t[5] = 8; // array out of bound in dynamic allocated array; cppcheck will not detect this
 
 	printf("done\n");
 	return EXIT_SUCCESS;
