@@ -104,7 +104,7 @@ class Export(object):
 				val = val.replace('\\', '/')
 				setattr(self, attr, val)
 
-	
+
 def task_process(self):
 	if not hasattr(self, 'cmd'):
 		return
