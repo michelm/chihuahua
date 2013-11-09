@@ -4,4 +4,7 @@
 .settings/*
 build/*
 reports/*
+*.mk
+Makefile
+
 
