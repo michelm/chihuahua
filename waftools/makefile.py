@@ -146,7 +146,8 @@ class MakeChild(Make):
 
 	def get_name(self):
 		gen = self.gen
-		return '%s/Makefile' % (gen.path.relpath().replace('\\', '/'))
+		name = '%s/%s.mk' % (gen.path.relpath(), gen.get_name())
+		return name.replace('\\', '/')
 
 	def get_content(self):		
 		if 'cprogram' in self.gen.features:
@@ -462,12 +463,18 @@ $(addprefix $(firstword $(subst _,$(sp),$1))_,$(subst $(lsep),$(sp),$(call getdv
 endef
 
 #------------------------------------------------------------------------------
-# creates a make recipe
+# creates a make recipe:
+#      'make -r -C <path> -f <name>.mk <command>'
+# where:
+#      <path>     is the relative path to the component
+#      <name>     is the name of the component
+#      <command>  is the make action to be executed, e.g. build, install, clean
+#
 # $1 = key, where key is the functional recipe name (e.g. build_a).
 #------------------------------------------------------------------------------
 define domake
 $1: $(call getdeps, $1)
-	$(MAKE) -r -C $(call getpath,$1) $(firstword $(subst _,$(sp),$1))
+	$(MAKE) -r -C $(call getpath,$1) -f $(lastword $(subst _,$(sp),$1)).mk $(firstword $(subst _,$(sp),$1))
 endef
 
 #------------------------------------------------------------------------------
