@@ -4,7 +4,7 @@ Installation:
 - Create RPM for setting up envioronment in Fedora
 
 Components:
-- Add C component using external lib (e.g. math)
++ Add C component using external lib (e.g. math)
 
 Export modules:
 - Add description for makefile export module
