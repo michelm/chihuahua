@@ -1,0 +1,31 @@
+
+Installation:
+- Create NSIS installer for setting up environment in Windows
+- Create RPM for setting up envioronment in Fedora
+
+Components:
+- Add C component using external lib (e.g. math)
+
+Export modules:
+- Add description for makefile export module
+- Add description for export module
+- Add description for cppcheck module
+- Add export module for CMAKE
+- Add export module for Eclipse
+- Add export module for Visual Studio
+
+Packaging modules:
+- Create fetch module for retrieving external dependencies
+- Create package module for NSIS
+- Create package module for RPM
+
+Verification:
+- Test environmont with Python 3.x.x
+- Create test environment for Fedora, WinXP and Win7 for regression testing
+
+
+
+
+
+
+
