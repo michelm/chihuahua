@@ -1,19 +1,67 @@
-#! /usr/bin/env python
+#!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 # Michel Mooij, michel.mooij7@gmail.com
 
-'''Exports and converts waf project data into code::blocks projects and 
-workspaces. 
+'''
+DESCRIPTION
+===========
+This module exports and converts WAF project data into code::blocks projects 
+file (*.cbp) and code::blocks workspaces (codeblock.workspace). 
 
 When exporting, a single code::blocks workspace will be exported in the top
-level directory of the waf build environment. This workspace file will contain
+level directory of the WAF build environment. This workspace file will contain
 references to all exported code::blocks project files and includes dependencies
 between those projects.
 
-For each single task generator a single code::blocks project file will be 
-generated in the directory where the task generator has been defined. The name
-of task generator will be used as name for the exported project file.
+For each single task generator, for instance 'bld.program(...)' which has been
+defined within a wscript file somewhere in the build environment, a single 
+code::blocks project file will be generated in the directory where the task 
+generator has been defined. The name of task generator will be used as name 
+for the exported code::blocks project file; if for instance the name of the 
+task generator is 'hello' then a code::blocks project file named 'hello.cbp' 
+will be exported in the same directory as where the task generator has been 
+defined.
 
+Example below present an overview of an environment in which code::blocks files
+have been exported:
+
+		.
+		├── components
+		│   └── clib
+		│       ├── program
+		│       │   ├── cprogram.cbp
+		│       │   └── wscript
+		│       ├── shared
+		│       │   ├── cshlib.cbp
+		│       │   └── wscript
+		│       └── static
+		│           ├── cstlib.cbp
+		│           └── wscript
+		│
+		├── codeblocks.workspace
+		└── wscript
+
+Note the environment contains a single code::blocks workspace file in the top 
+directory of the environment. Furthermore it contains a code::blocks project 
+file for each task generator (in this example one per wscript file) in the same
+location as where the task generator has been defined. 
+
+
+USAGE
+-----
+Code::blocks files can be exported using the 'export' command:
+	
+		'waf export --export-codeblocks'
+
+When needed exported code::blocks may be removed using 'export-clean' command:
+
+		'waf export --export-cleanup'
+
+
+REMARKS
+-------
+This module is part of the 'export' module and cannot be used as a stand-alone
+WAF tool.
 '''
 
 import os
