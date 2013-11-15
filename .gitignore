@@ -6,5 +6,5 @@ build/*
 reports/*
 *.mk
 Makefile
-
+output/*
 
