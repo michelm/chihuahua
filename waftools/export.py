@@ -96,7 +96,6 @@ class Export(object):
 		self.dest_os = bld.env.DEST_OS		
 		self._clean_os_separators()
 
-
 	def _clean_os_separators(self):
 		for attr in self.__dict__:
 			val = getattr(self, attr)
