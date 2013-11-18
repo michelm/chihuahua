@@ -239,8 +239,8 @@ class CDTProject(Project):
 		ElementTree.SubElement(module, 'project', attrib=attr)
 
 	def update_scannerconfiguration(self, module):
-		self.add_scanner_config_build_info(module, key='debug')
 		self.add_scanner_config_build_info(module, key='release')
+		self.add_scanner_config_build_info(module, key='debug')
 
 	def add_scanner_config_build_info(self, module, key):
 		iid = [
@@ -267,12 +267,13 @@ class CDTProject(Project):
 		cconfiguration = ElementTree.SubElement(module, 'cconfiguration', {'id':ccid})
 		self.add_configuration_data_provider(cconfiguration, key, name)
 		self.add_configuration_cdt_buildsystem(cconfiguration, key, name)
+		ElementTree.SubElement(cconfiguration, 'storageModule', {'moduleId':'org.eclipse.cdt.core.externalSettings'})
 
 	def add_configuration_data_provider(self, cconfiguration, key, name):
 		module = ElementTree.fromstring(ECLIPSE_CDT_DATAPROVIDER)
 		settings = module.find('externalSettings')
 		if self.is_program:
-			module.remove(settings)
+			settings.clear()
 		else:
 			for entry in settings.iter('entry'):
 				if entry.get('kind') == 'includePath':
@@ -291,9 +292,7 @@ class CDTProject(Project):
 		provider.set('id', 'cdt.managedbuild.config.gnu.%s.%s.%s' % (self.kind, key, self.uuid[key]))
 		provider.set('name', name)
 		provider.set('buildSystemId', 'org.eclipse.cdt.managedbuilder.core.configurationDataProvider')
-		#TODO: 
-		# ElementTree does not allow setting moduleId maybe its not allowed since parent has same moduleId
-		#provider.set('moduleId', 'org.eclipse.cdt.core.settings') 
+		provider.set('moduleId', 'org.eclipse.cdt.core.settings') 
 		provider.extend(module)
 
 	def add_configuration_cdt_buildsystem(self, cconfiguration, key, name):
@@ -317,7 +316,7 @@ class CDTProject(Project):
 		config.set('buildProperties', '%s,%s' % (btype, atype))
 	
 		folder = config.find('folderInfo')
-		folder.set('id','cdt.managedbuild.config.gnu.so.%s.%s.' % (key, self.uuid[key]))
+		folder.set('id','cdt.managedbuild.config.gnu.%s.%s.%s.' % (self.kind, key, self.uuid[key]))
 		self.update_toolchain(folder, key, name)
 		cconfiguration.append(module)
 
@@ -352,9 +351,8 @@ class CDTProject(Project):
 
 		self.add_compiler(toolchain, key, 'cpp', 'GCC C++ Compiler', cpp_uuid)
 		self.add_compiler(toolchain, key, 'c', 'GCC C Compiler', c_uuid)
-
-		self.add_linker(toolchain, key, 'cpp', 'GCC C++ Linker')
 		self.add_linker(toolchain, key, 'c', 'GCC C Linker')
+		self.add_linker(toolchain, key, 'cpp', 'GCC C++ Linker')
 
 		assembler = ElementTree.SubElement(toolchain, 'tool', {'name':'GCC Assembler'})
 		assembler.set('id', 'cdt.managedbuild.tool.gnu.assembler.%s.%s.%s' % (self.kind, key, self.get_uuid()))
@@ -378,11 +376,12 @@ class CDTProject(Project):
 		option.set('id', 'gnu.%s.compiler.%s.%s.option.optimization.level.%s' % (language, self.kind, key, self.get_uuid()))
 		option.set('superClass', 'gnu.%s.compiler.%s.%s.option.optimization.level' % (language, self.kind, key))
 		option.set('value', 'gnu.%s.compiler.optimization.level.%s' % (language, optimization_level))
-		
+		# TODO: option.set('defaultValue', 'gnu.%s.optimization.level.%s' % (language, optimization_level))
+
 		option = ElementTree.SubElement(compiler, 'option', {'name':'Debug Level', 'valueType':'enumerated'})
 		option.set('id', 'gnu.%s.compiler.%s.%s.option.debugging.level.%s' % (language, self.kind, key, self.get_uuid()))
 		option.set('superClass', 'gnu.%s.compiler.%s.%s.option.debugging.level' % (language, self.kind, key))
-		option.set('value', 'gnu.%s.debugging.level.%s' % (language, debug_level))
+		option.set('value', 'gnu.%s.compiler.debugging.level.%s' % (language, debug_level))
 
 		self.add_cc_includes(compiler, key, language)
 		self.add_cc_preprocessor(compiler, key, language)
@@ -400,13 +399,13 @@ class CDTProject(Project):
 		option.set('id', 'gnu.%s.compiler.option.include.paths.%s' % (language, self.get_uuid()))
 		option.set('superClass', 'gnu.%s.compiler.option.include.paths' % (language))
 		for include in [str(i).lstrip('./') for i in includes]:
-			listoption = ElementTree.SubElement(option, 'listOptionValue', {'buildIn':'false'})
+			listoption = ElementTree.SubElement(option, 'listOptionValue', {'builtIn':'false'})
 			listoption.set('value', '"${workspace_loc:/${ProjName}/%s}"' % (include))
 		for use in uses:			
 			tgen = self.bld.get_tgen_by_name(use)
 			includes = getattr(tgen, 'export_includes', [])
 			for include in [i.lstrip('./') for i in includes]:
-				listoption = ElementTree.SubElement(option, 'listOptionValue', {'buildIn':'false'})
+				listoption = ElementTree.SubElement(option, 'listOptionValue', {'builtIn':'false'})
 				listoption.set('value', '"${workspace_loc:/%s/%s}"' % (use, include))
 
 	def add_cc_preprocessor(self, compiler, key, language):
@@ -421,7 +420,7 @@ class CDTProject(Project):
 		option.set('id', 'gnu.%s.compiler.option.preprocessor.def.symbols.%s' % (language, self.get_uuid()))
 		option.set('superClass', 'gnu.%s.compiler.option.preprocessor.def.symbols' % (language))
 		for define in defines:
-			listoption = ElementTree.SubElement(option, 'listOptionValue', {'buildIn':'false'})
+			listoption = ElementTree.SubElement(option, 'listOptionValue', {'builtIn':'false'})
 			listoption.set('value', define)
 
 	def add_cc_input(self, compiler, key, language):
@@ -461,7 +460,7 @@ class CDTProject(Project):
 		option.set('id', 'gnu.%s.link.option.libs.%s' % (language, self.get_uuid()))
 		option.set('superClass', 'gnu.%s.link.option.libs' % (language))
 		for lib in libs:
-			listoption = ElementTree.SubElement(option, 'listOptionValue', {'buildIn':'false'})
+			listoption = ElementTree.SubElement(option, 'listOptionValue', {'builtIn':'false'})
 			listoption.set('value', lib)
 
 	def add_linker_lib_paths(self, linker, key, language):
@@ -478,7 +477,7 @@ class CDTProject(Project):
 		option.set('id', 'gnu.%s.link.option.paths.%s' % (language, self.get_uuid()))
 		option.set('superClass', 'gnu.%s.link.option.paths' % (language))
 		for lib in libs:
-			listoption = ElementTree.SubElement(option, 'listOptionValue', {'buildIn':'false'})
+			listoption = ElementTree.SubElement(option, 'listOptionValue', {'builtIn':'false'})
 			listoption.set('value', '"${workspace_loc:/%s/%s}"' % (lib, key.title()))
 
 	def add_linker_input(self, linker, key, language):
