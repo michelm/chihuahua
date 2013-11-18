@@ -333,8 +333,9 @@ class CBProject(CodeBlocks):
 		includes = []
 		for include in self._get_genlist(gen, 'includes'):
 			node = gen.path.find_dir(include)
-			for include in node.ant_glob('*.h*'):
-				includes.append(include.path_from(gen.path).replace('\\', '/'))
+			if node:
+				for include in node.ant_glob('*.h*'):
+					includes.append(include.path_from(gen.path).replace('\\', '/'))
 		return includes
 
 
