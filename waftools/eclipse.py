@@ -322,17 +322,17 @@ class CDTProject(Project):
 
 	def update_toolchain(self, folder, key, name):
 		toolchain = folder.find('toolChain')
-		toolchain.set('id', 'cdt.managedbuild.toolchain.gnu.%s.%s.%s' % (self.kind, key, self.uuid[key]))
+		toolchain.set('id', 'cdt.managedbuild.toolchain.gnu.%s.%s.%s' % (self.kind, key, self.get_uuid()))
 		toolchain.set('superClass', 'cdt.managedbuild.toolchain.gnu.%s.%s' % (self.kind, key))
 
 		target = toolchain.find('targetPlatform')
-		target.set('id', 'cdt.managedbuild.target.gnu.platform.%s.%s.%s' % (self.kind, key, self.uuid[key]))
+		target.set('id', 'cdt.managedbuild.target.gnu.platform.%s.%s.%s' % (self.kind, key, self.get_uuid()))
 		target.set('name', '%s Platform' % name)
 		target.set('superClass', 'cdt.managedbuild.target.gnu.platform.%s.%s' % (self.kind, key))
 
 		builder = toolchain.find('builder')
 		builder.set('buildPath', '${workspace_loc:/%s}/%s' % (self.gen.get_name(), key.title()))
-		builder.set('id', 'cdt.managedbuild.target.gnu.builder.%s.%s.%s' % (self.kind, key, self.uuid[key]))
+		builder.set('id', 'cdt.managedbuild.target.gnu.builder.%s.%s.%s' % (self.kind, key, self.get_uuid()))
 		builder.set('superClass', 'cdt.managedbuild.target.gnu.builder.%s.%s' % (self.kind, key))
 
 		archiver = ElementTree.SubElement(toolchain, 'tool', {'name':'GCC Archiver'})
@@ -364,7 +364,13 @@ class CDTProject(Project):
 		compiler = ElementTree.SubElement(toolchain, 'tool', {'name' : name})
 		compiler.set('id', 'cdt.managedbuild.tool.gnu.%s.compiler.%s.%s.%s' % (language, self.kind, key, uuid))
 		compiler.set('superClass', 'cdt.managedbuild.tool.gnu.%s.compiler.%s.%s' % (language, self.kind, key))
+		self.add_cc_options(compiler, key, language)
+		self.add_cc_includes(compiler, key, language)
+		self.add_cc_preprocessor(compiler, key, language)
+		self.add_cc_input(compiler, key, language)
+		return compiler
 
+	def add_cc_options(self, compiler, key, language):
 		if 'debug' in key:
 			optimization_level = 'none'
 			debug_level = 'max'
@@ -375,18 +381,23 @@ class CDTProject(Project):
 		option = ElementTree.SubElement(compiler, 'option', {'name':'Optimization Level', 'valueType':'enumerated'})
 		option.set('id', 'gnu.%s.compiler.%s.%s.option.optimization.level.%s' % (language, self.kind, key, self.get_uuid()))
 		option.set('superClass', 'gnu.%s.compiler.%s.%s.option.optimization.level' % (language, self.kind, key))
-		option.set('value', 'gnu.%s.compiler.optimization.level.%s' % (language, optimization_level))
-		# TODO: option.set('defaultValue', 'gnu.%s.optimization.level.%s' % (language, optimization_level))
+		if language == 'cpp':
+			option.set('value', 'gnu.cpp.compiler.optimization.level.%s' % (optimization_level))
+		else:
+			option.set('value', 'gnu.c.optimization.level.%s' % (optimization_level))
 
 		option = ElementTree.SubElement(compiler, 'option', {'name':'Debug Level', 'valueType':'enumerated'})
 		option.set('id', 'gnu.%s.compiler.%s.%s.option.debugging.level.%s' % (language, self.kind, key, self.get_uuid()))
 		option.set('superClass', 'gnu.%s.compiler.%s.%s.option.debugging.level' % (language, self.kind, key))
-		option.set('value', 'gnu.%s.compiler.debugging.level.%s' % (language, debug_level))
+		if language == 'cpp':
+			option.set('value', 'gnu.cpp.compiler.debugging.level.%s' % (debug_level))
+		else:
+			option.set('value', 'gnu.c.debugging.level.%s' % (debug_level))
 
-		self.add_cc_includes(compiler, key, language)
-		self.add_cc_preprocessor(compiler, key, language)
-		self.add_cc_input(compiler, key, language)
-		return compiler
+		if self.is_shlib and self.is_language(language):
+			option = ElementTree.SubElement(compiler, 'option', {'value':'true','valueType':'boolean'})
+			option.set('id', 'gnu.%s.compiler.option.misc.pic.%s' % (language, self.get_uuid()))
+			option.set('superClass', 'gnu.%s.compiler.option.misc.pic' % language)
 
 	def add_cc_includes(self, compiler, key, language):
 		if not self.is_language(language):
