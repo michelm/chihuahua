@@ -196,6 +196,10 @@ class CDTProject(Project):
 			self.kind_name = 'Executable'
 			self.kind = 'exe'
 
+		self.language = 'c'
+		if 'cxx' in self.gen.features:
+			self.language = 'cpp'
+
 	def export(self):
 		super(CDTProject, self).export()
 		self.project.export()
@@ -239,8 +243,8 @@ class CDTProject(Project):
 		iid = [
 			"cdt.managedbuild.config.gnu.%s.%s.%s" % (self.kind, key, self.uuid[key]),
 			"cdt.managedbuild.config.gnu.%s.%s.%s." % (self.kind, key, self.uuid[key]),
-			"cdt.managedbuild.tool.gnu.c.compiler.%s.%s.%s" % (self.kind, key, self.uuid['%s_compiler' % key]),
-			"cdt.managedbuild.tool.gnu.c.compiler.input.%s" % (self.uuid['%s_input' % key])
+			"cdt.managedbuild.tool.gnu.%s.compiler.%s.%s.%s" % (self.language, self.kind, key, self.uuid['%s_compiler' % key]),
+			"cdt.managedbuild.tool.gnu.%s.compiler.input.%s" % (self.language, self.uuid['%s_input' % key])
 		]
 		element = ElementTree.SubElement(module, 'scannerConfigBuildInfo', {'instanceId':';'.join(iid)})
 
@@ -328,6 +332,50 @@ class CDTProject(Project):
 		builder.set('buildPath', '${workspace_loc:/%s}/%s' % (self.gen.get_name(), name))
 		builder.set('id', 'cdt.managedbuild.target.gnu.builder.%s.%s.%s' % (self.kind, key, self.uuid[key]))
 		builder.set('superClass', 'cdt.managedbuild.target.gnu.builder.%s.%s' % (self.kind, key))
+
+		archiver = ElementTree.SubElement(toolchain, 'tool', {'name':'GCC Archiver'})
+		if self.is_stlib:
+			asc = 'cdt.managedbuild.tool.gnu.archiver.lib.%s' % key
+		else:
+			asc = 'cdt.managedbuild.tool.gnu.archiver.base'
+		archiver.set('id', '%s.%s' % (asc,self.get_uuid()))
+		archiver.set('superClass', asc)
+
+		c_uuid = self.uuid['%s_compiler' % key]
+		cpp_uuid = self.get_uuid()
+		if 'cxx' in self.gen.features:
+			cpp_uuid = c_uuid
+			c_uuid = self.get_uuid()
+
+		compiler = ElementTree.SubElement(toolchain, 'tool', {'name':'GCC C++ Compiler'})
+		compiler.set('id', 'cdt.managedbuild.tool.gnu.cpp.compiler.%s.%s.%s' % (self.kind, key, cpp_uuid))
+		compiler.set('superClass', 'cdt.managedbuild.tool.gnu.cpp.compiler.%s.%s' % (self.kind, key))
+
+		compiler = ElementTree.SubElement(toolchain, 'tool', {'name':'GCC C Compiler'})
+		compiler.set('id', 'cdt.managedbuild.tool.gnu.c.compiler.%s.%s.%s' % (self.kind, key, c_uuid))
+		compiler.set('superClass', 'cdt.managedbuild.tool.gnu.c.compiler.%s.%s' % (self.kind, key))
+
+		linker = ElementTree.SubElement(toolchain, 'tool', {'name':'GCC C Linker'})
+		linker.set('id', 'cdt.managedbuild.tool.gnu.c.linker.%s.%s.%s' % (self.kind, key, self.get_uuid()))
+		linker.set('superClass', 'cdt.managedbuild.tool.gnu.c.linker.%s.%s' % (self.kind, key))
+		if self.is_shlib:
+			option = ElementTree.SubElement(linker, 'option', {'name':'Shared (-shared)', 'defaultValue':'true', 'valueType':'boolean'})
+			option.set('id', 'gnu.c.link.so.%s.option.shared.%s' % (key, self.get_uuid()))
+			option.set('superClass', 'gnu.c.link.so.%s.option.shared' % key)
+
+		linker = ElementTree.SubElement(toolchain, 'tool', {'name':'GCC C++ Linker'})
+		linker.set('id', 'cdt.managedbuild.tool.gnu.cpp.linker.%s.%s.%s' % (self.kind, key, self.get_uuid()))
+		linker.set('superClass', 'cdt.managedbuild.tool.gnu.cpp.linker.%s.%s' % (self.kind, key))
+		if self.is_shlib:
+			option = ElementTree.SubElement(linker, 'option', {'name':'Shared (-shared)', 'defaultValue':'true', 'valueType':'boolean'})
+			option.set('id', 'gnu.cpp.link.so.%s.option.shared.%s' % (key, self.get_uuid()))
+			option.set('superClass', 'gnu.cpp.link.so.%s.option.shared' % key)
+
+		assembler = ElementTree.SubElement(toolchain, 'tool', {'name':'GCC Assembler'})
+		assembler.set('id', 'cdt.managedbuild.tool.gnu.assembler.%s.%s.%s' % (self.kind, key, self.get_uuid()))
+		assembler.set('superClass', 'cdt.managedbuild.tool.gnu.assembler.%s.%s' % (self.kind, key))
+		inputtype = ElementTree.SubElement(assembler, 'inputType', {'superClass':'cdt.managedbuild.tool.gnu.assembler.input'})
+		inputtype.set('id', 'cdt.managedbuild.tool.gnu.assembler.input.%s' % self.get_uuid())
 
 
 ECLIPSE_PROJECT = \
