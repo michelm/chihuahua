@@ -83,6 +83,11 @@ class Project(object):
 		name = root.find('name')
 		name.text = self.get_name()
 
+		if self.gen:
+			projects = root.find('projects')
+			for project in getattr(self.gen, 'use', []):
+				ElementTree.SubElement(projects, 'project').text = project
+
 		buildspec = root.find('buildSpec')
 		for buildcommand in self.buildcommands:
 			(name, triggers, arguments) = buildcommand
@@ -163,24 +168,34 @@ class CProject(Project):
 		super(CProject, self).__init__(bld, gen)
 		self.targets = targets
 		self.project = Project(bld, gen)
+		self.comments = [
+			'<?xml version="1.0" encoding="UTF-8" standalone="no"?>',
+			'<?fileVersion 4.0.0?>'
+		]
 		
 		natures = [
 			'org.eclipse.cdt.core.cnature',
 			'org.eclipse.cdt.managedbuilder.core.managedBuildNature',
-			'org.eclipse.cdt.managedbuilder.core.ScannerConfigNature'
+			'org.eclipse.cdt.managedbuilder.core.ScannerConfigNature',
 		]
 		self.project.natures.extend(natures)
 
-		buildcommands = [
-		(	'org.eclipse.cdt.managedbuilder.core.genmakebuilder',
-			'clean,full,incremental,',
-			''
-		),
-		(	'org.eclipse.cdt.managedbuilder.core.ScannerConfigBuilder',
-			'full,incremental,',
-			''
-		)]
+		buildcommands = [ 
+		# name, triggers, arguments
+		('org.eclipse.cdt.managedbuilder.core.genmakebuilder', 'clean,full,incremental,', ''),
+		('org.eclipse.cdt.managedbuilder.core.ScannerConfigBuilder', 'full,incremental,', '')
+		]
 		self.project.buildcommands.extend(buildcommands)
+
+		self.uuid = {
+			'debug'		: self.get_uuid(),
+			'debug_compiler': self.get_uuid(),
+			'debug_input'	: self.get_uuid(),
+			'release'	: self.get_uuid(),
+			'release_compiler': self.get_uuid(),
+			'release_input'	: self.get_uuid(),
+		}
+
 
 	def export(self):
 		super(CProject, self).export()
@@ -194,8 +209,69 @@ class CProject(Project):
 		return '%s/.cproject' % (self.gen.path.relpath().replace('\\', '/'))
 
 	def get_content(self):
-		root = ElementTree.fromstring(ECLIPSE_PROJECT)
+		root = ElementTree.fromstring(ECLIPSE_CPROJECT)
+		for module in root.iter('storageModule'):
+			if module.get('moduleId') == 'cdtBuildSystem':
+				self.update_buildsystem(module)
+			if module.get('moduleId') == 'scannerConfiguration':
+				self.update_scannerconfiguration(module)
+			if module.get('moduleId') == 'refreshScope':
+				self.update_refreshscope(module)
+
 		return ElementTree.tostring(root)
+
+	def get_uuid(self):
+		return int(os.urandom(4).encode('hex'), 16)
+
+	def update_buildsystem(self, module):
+		attr = {}
+		if set(('cprogram', 'cxxprogram')) & set(self.gen.features):
+			attr['id'] = '%s.cdt.managedbuild.target.gnu.exe.%s' % (self.gen.get_name(), self.get_uuid())
+			attr['name'] = 'Executable'
+			attr['projectType'] = 'cdt.managedbuild.target.gnu.exe'
+		if set(('cshlib', 'cxxshlib')) & set(self.gen.features):
+			attr['id'] = '%s.cdt.managedbuild.target.gnu.so.%s' % (self.gen.get_name(), self.get_uuid())
+			attr['name'] = 'Shared Library'
+			attr['projectType'] = 'cdt.managedbuild.target.gnu.so'
+		if set(('cstlib', 'cxxstlib')) & set(self.gen.features):
+			attr['id'] = '%s.cdt.managedbuild.target.gnu.lib.%s' % (self.gen.get_name(), self.get_uuid())
+			attr['name'] = 'Static Library'
+			attr['projectType'] = 'cdt.managedbuild.target.gnu.lib'
+		ElementTree.SubElement(module, 'project', attrib=attr)
+
+	def update_scannerconfiguration(self, module):
+		iid = [
+			"cdt.managedbuild.config.gnu.exe.debug.%s" % self.uuid['debug'],
+			"cdt.managedbuild.config.gnu.exe.debug.%s." % self.uuid['debug'],
+			"cdt.managedbuild.tool.gnu.c.compiler.exe.debug.%s" % self.uuid['debug_compiler'],
+			"cdt.managedbuild.tool.gnu.c.compiler.input.%s" % self.uuid['debug_input']
+		]
+		self.add_scanner_config_build_info(module, ';'.join(iid))
+
+		iid = [
+			"cdt.managedbuild.config.gnu.exe.release.%s" % self.uuid['release'],
+			"cdt.managedbuild.config.gnu.exe.release.%s." % self.uuid['release'],
+			"cdt.managedbuild.tool.gnu.c.compiler.exe.release.%s" % self.uuid['release_compiler'],
+			"cdt.managedbuild.tool.gnu.c.compiler.input.%s" % self.uuid['release_input']
+		]
+		self.add_scanner_config_build_info(module, ';'.join(iid))
+
+	def add_scanner_config_build_info(self, module, instance_id):
+		attrib = {
+			'instanceId':instance_id
+		}
+		element = ElementTree.SubElement(module, 'scannerConfigBuildInfo', attrib)
+
+		attrib= {
+			'enabled':'true', 
+			'problemReportingEnabled':'true', 
+			'selectedProfileId':''
+		}
+		ElementTree.SubElement(element, 'autodiscovery', attrib)
+
+	def update_refreshscope(self, module):
+		for resource in module.iter('resource'):
+			resource.set('workspacePath', '/%s' % self.gen.get_name())
 
 
 ECLIPSE_PROJECT = \
@@ -228,6 +304,31 @@ ECLIPSE_PYDEVPROJECT = \
 </pydev_project>
 
 '''
+
+
+ECLIPSE_CPROJECT = \
+'''<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<?fileVersion 4.0.0?>
+<cproject storage_type_id="org.eclipse.cdt.core.XmlProjectDescriptionStorage">
+	<storageModule moduleId="org.eclipse.cdt.core.settings">
+	</storageModule>
+	<storageModule moduleId="cdtBuildSystem" version="4.0.0">
+	</storageModule>
+	<storageModule moduleId="scannerConfiguration">
+		<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
+	</storageModule>
+	<storageModule moduleId="org.eclipse.cdt.core.LanguageSettingsProviders"/>
+	<storageModule moduleId="refreshScope" versionNumber="2">
+		<configuration configurationName="Release">
+			<resource resourceType="PROJECT" workspacePath=""/>
+		</configuration>
+		<configuration configurationName="Debug">
+			<resource resourceType="PROJECT" workspacePath=""/>
+		</configuration>
+	</storageModule>
+</cproject>
+'''
+
 
 
 
