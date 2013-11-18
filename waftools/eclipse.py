@@ -414,7 +414,7 @@ class CDTProject(Project):
 		defines = self.gen.env.DEFINES
 		if not len(defines):
 			return
-		defines = [d.replace('"', '\\\\"') for d in defines]
+		defines = [d.replace('"', '\\"') for d in defines]
 
 		option = ElementTree.SubElement(compiler, 'option', {'name':'Defined symbols (-D)', 'valueType':'definedSymbols'})
 		option.set('id', 'gnu.%s.compiler.option.preprocessor.def.symbols.%s' % (language, self.get_uuid()))
