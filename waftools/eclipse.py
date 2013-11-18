@@ -13,7 +13,7 @@ def export(bld):
 	root = WafProject(bld)
 	for gen, targets in bld.components.items():
 		if set(('c', 'cxx')) & set(getattr(gen, 'features', [])):
-			child = CProject(bld, gen, targets)
+			child = CDTProject(bld, gen, targets)
 			child.export()
 	root.export()
 
@@ -22,7 +22,7 @@ def cleanup(bld):
 	root = WafProject(bld)
 	for gen, targets in bld.components.items():
 		if set(('c', 'cxx')) & set(getattr(gen, 'features', [])):
-			child = CProject(bld, gen, targets)
+			child = CDTProject(bld, gen, targets)
 			child.cleanup()
 	root.cleanup()
 
@@ -163,115 +163,171 @@ class WafProject(PyDevProject):
 		self.ext_source_paths.append(path)
 		
 
-class CProject(Project):
+class CDTProject(Project):
 	def __init__(self, bld, gen, targets):
-		super(CProject, self).__init__(bld, gen)
+		super(CDTProject, self).__init__(bld, gen)
 		self.targets = targets
 		self.project = Project(bld, gen)
-		self.comments = [
-			'<?xml version="1.0" encoding="UTF-8" standalone="no"?>',
-			'<?fileVersion 4.0.0?>'
-		]
-		
-		natures = [
-			'org.eclipse.cdt.core.cnature',
-			'org.eclipse.cdt.managedbuilder.core.managedBuildNature',
-			'org.eclipse.cdt.managedbuilder.core.ScannerConfigNature',
-		]
-		self.project.natures.extend(natures)
-
-		buildcommands = [ 
-		# name, triggers, arguments
-		('org.eclipse.cdt.managedbuilder.core.genmakebuilder', 'clean,full,incremental,', ''),
-		('org.eclipse.cdt.managedbuilder.core.ScannerConfigBuilder', 'full,incremental,', '')
-		]
-		self.project.buildcommands.extend(buildcommands)
+		self.comments = ['<?xml version="1.0" encoding="UTF-8" standalone="no"?>','<?fileVersion 4.0.0?>']		
+		self.is_program = set(('cprogram', 'cxxprogram')) & set(self.gen.features)
+		self.is_shlib = set(('cshlib', 'cxxshlib')) & set(self.gen.features)
+		self.is_stlib = set(('cstlib', 'cxxstlib')) & set(self.gen.features)
+		self.project.natures.append('org.eclipse.cdt.core.cnature')
+		self.project.natures.append('org.eclipse.cdt.managedbuilder.core.managedBuildNature')
+		self.project.natures.append('org.eclipse.cdt.managedbuilder.core.ScannerConfigNature')
+		self.project.buildcommands.append(('org.eclipse.cdt.managedbuilder.core.genmakebuilder', 'clean,full,incremental,', ''))
+		self.project.buildcommands.append(('org.eclipse.cdt.managedbuilder.core.ScannerConfigBuilder', 'full,incremental,', ''))
 
 		self.uuid = {
-			'debug'		: self.get_uuid(),
+			'debug': self.get_uuid(),
 			'debug_compiler': self.get_uuid(),
-			'debug_input'	: self.get_uuid(),
-			'release'	: self.get_uuid(),
+			'debug_input': self.get_uuid(),
+			'release': self.get_uuid(),
 			'release_compiler': self.get_uuid(),
-			'release_input'	: self.get_uuid(),
+			'release_input': self.get_uuid(),
 		}
-
+		if self.is_shlib:
+			self.kind_name = 'Shared Library'
+			self.kind = 'so'
+		elif self.is_stlib:
+			self.kind_name = 'Static Library'
+			self.kind = 'lib'
+		else:
+			self.kind_name = 'Executable'
+			self.kind = 'exe'
 
 	def export(self):
-		super(CProject, self).export()
+		super(CDTProject, self).export()
 		self.project.export()
 
 	def cleanup(self):
-		super(CProject, self).cleanup()
+		super(CDTProject, self).cleanup()
 		self.project.cleanup()
 
 	def get_fname(self):
 		return '%s/.cproject' % (self.gen.path.relpath().replace('\\', '/'))
 
 	def get_content(self):
-		root = ElementTree.fromstring(ECLIPSE_CPROJECT)
-		for module in root.iter('storageModule'):
+		root = ElementTree.fromstring(ECLIPSE_CDT_PROJECT)
+		for module in root.findall('storageModule'):
+			if module.get('moduleId') == 'org.eclipse.cdt.core.settings':
+				self.update_cdt_core_settings(module)
 			if module.get('moduleId') == 'cdtBuildSystem':
 				self.update_buildsystem(module)
 			if module.get('moduleId') == 'scannerConfiguration':
 				self.update_scannerconfiguration(module)
 			if module.get('moduleId') == 'refreshScope':
 				self.update_refreshscope(module)
-
 		return ElementTree.tostring(root)
 
 	def get_uuid(self):
 		return int(os.urandom(4).encode('hex'), 16)
 
 	def update_buildsystem(self, module):
-		attr = {}
-		if set(('cprogram', 'cxxprogram')) & set(self.gen.features):
-			attr['id'] = '%s.cdt.managedbuild.target.gnu.exe.%s' % (self.gen.get_name(), self.get_uuid())
-			attr['name'] = 'Executable'
-			attr['projectType'] = 'cdt.managedbuild.target.gnu.exe'
-		if set(('cshlib', 'cxxshlib')) & set(self.gen.features):
-			attr['id'] = '%s.cdt.managedbuild.target.gnu.so.%s' % (self.gen.get_name(), self.get_uuid())
-			attr['name'] = 'Shared Library'
-			attr['projectType'] = 'cdt.managedbuild.target.gnu.so'
-		if set(('cstlib', 'cxxstlib')) & set(self.gen.features):
-			attr['id'] = '%s.cdt.managedbuild.target.gnu.lib.%s' % (self.gen.get_name(), self.get_uuid())
-			attr['name'] = 'Static Library'
-			attr['projectType'] = 'cdt.managedbuild.target.gnu.lib'
+		attr = {
+			'id': '%s.cdt.managedbuild.target.gnu.%s.%s' % (self.gen.get_name(), self.kind, self.get_uuid()),
+			'name': self.kind_name,
+			'projectType': 'cdt.managedbuild.target.gnu.%s' % (self.kind)
+		}
 		ElementTree.SubElement(module, 'project', attrib=attr)
 
 	def update_scannerconfiguration(self, module):
+		self.add_scanner_config_build_info(module, key='debug')
+		self.add_scanner_config_build_info(module, key='release')
+
+	def add_scanner_config_build_info(self, module, key):
 		iid = [
-			"cdt.managedbuild.config.gnu.exe.debug.%s" % self.uuid['debug'],
-			"cdt.managedbuild.config.gnu.exe.debug.%s." % self.uuid['debug'],
-			"cdt.managedbuild.tool.gnu.c.compiler.exe.debug.%s" % self.uuid['debug_compiler'],
-			"cdt.managedbuild.tool.gnu.c.compiler.input.%s" % self.uuid['debug_input']
+			"cdt.managedbuild.config.gnu.%s.%s.%s" % (self.kind, key, self.uuid[key]),
+			"cdt.managedbuild.config.gnu.%s.%s.%s." % (self.kind, key, self.uuid[key]),
+			"cdt.managedbuild.tool.gnu.c.compiler.%s.%s.%s" % (self.kind, key, self.uuid['%s_compiler' % key]),
+			"cdt.managedbuild.tool.gnu.c.compiler.input.%s" % (self.uuid['%s_input' % key])
 		]
-		self.add_scanner_config_build_info(module, ';'.join(iid))
+		element = ElementTree.SubElement(module, 'scannerConfigBuildInfo', {'instanceId':';'.join(iid)})
 
-		iid = [
-			"cdt.managedbuild.config.gnu.exe.release.%s" % self.uuid['release'],
-			"cdt.managedbuild.config.gnu.exe.release.%s." % self.uuid['release'],
-			"cdt.managedbuild.tool.gnu.c.compiler.exe.release.%s" % self.uuid['release_compiler'],
-			"cdt.managedbuild.tool.gnu.c.compiler.input.%s" % self.uuid['release_input']
-		]
-		self.add_scanner_config_build_info(module, ';'.join(iid))
-
-	def add_scanner_config_build_info(self, module, instance_id):
-		attrib = {
-			'instanceId':instance_id
-		}
-		element = ElementTree.SubElement(module, 'scannerConfigBuildInfo', attrib)
-
-		attrib= {
-			'enabled':'true', 
-			'problemReportingEnabled':'true', 
-			'selectedProfileId':''
-		}
+		attrib= {'enabled':'true', 'problemReportingEnabled':'true', 'selectedProfileId':''}
 		ElementTree.SubElement(element, 'autodiscovery', attrib)
 
 	def update_refreshscope(self, module):
 		for resource in module.iter('resource'):
 			resource.set('workspacePath', '/%s' % self.gen.get_name())
+
+	def update_cdt_core_settings(self, module):
+		self.add_cconfiguration(module, key='debug', name='Debug')
+		self.add_cconfiguration(module, key='release', name='Release')
+
+	def add_cconfiguration(self, module, key, name):
+		ccid = 'cdt.managedbuild.config.gnu.%s.%s.%s' % (self.kind, key, self.uuid[key])
+		cconfiguration = ElementTree.SubElement(module, 'cconfiguration', {'id':ccid})
+		self.add_configuration_data_provider(cconfiguration, key, name)
+		self.add_configuration_cdt_buildsystem(cconfiguration, key, name)
+
+	def add_configuration_data_provider(self, cconfiguration, key, name):
+		module = ElementTree.fromstring(ECLIPSE_CDT_DATAPROVIDER)
+		settings = module.find('externalSettings')
+		if self.is_program:
+			module.remove(settings)
+		else:
+			for entry in settings.iter('entry'):
+				if entry.get('kind') == 'includePath':
+					entry.set('name', '/%s' % self.gen.get_name())
+				if entry.get('kind') == 'libraryPath':
+					entry.set('name', '/%s/%s' % (self.gen.get_name(),name))
+				if entry.get('kind') == 'libraryFile':
+					entry.set('name', '%s' % self.gen.get_name())
+		for extension in module.find('extensions').iter('extension'):
+			if extension.get('point') == 'org.eclipse.cdt.core.BinaryParser':
+				eid = extension.get('id')
+				if self.gen.env.DEST_OS == 'win32':
+					extension.set('id', eid.replace('.ELF', '.PE'))
+
+		provider = ElementTree.SubElement(cconfiguration, 'storageModule')
+		provider.set('id', 'cdt.managedbuild.config.gnu.%s.%s.%s' % (self.kind, key, self.uuid[key]))
+		provider.set('name', name)
+		provider.set('buildSystemId', 'org.eclipse.cdt.managedbuilder.core.configurationDataProvider')
+		#TODO: 
+		# ElementTree does not allow setting moduleId maybe its not allowed since parent has same moduleId
+		#provider.set('moduleId', 'org.eclipse.cdt.core.settings') 
+		provider.extend(module)
+
+	def add_configuration_cdt_buildsystem(self, cconfiguration, key, name):
+		module = ElementTree.fromstring(ECLIPSE_CDT_BUILDSYSTEM)
+		config = module.find('configuration')
+		config.set('name', name)
+		if self.is_shlib:
+			config.set('buildArtefactType', 'org.eclipse.cdt.build.core.buildArtefactType.sharedLib')
+			config.set('artifactExtension', 'so')
+		elif self.is_stlib:
+			config.set('buildArtefactType', 'org.eclipse.cdt.build.core.buildArtefactType.staticLib')
+			config.set('artifactExtension', 'a')
+		else:
+			config.set('buildArtefactType', 'org.eclipse.cdt.build.core.buildArtefactType.exe')
+
+		config.set('parent', 'cdt.managedbuild.config.gnu.%s.%s' % (self.kind, key))
+		config.set('id', 'cdt.managedbuild.config.gnu.%s.%s.%s' % (self.kind, key, self.uuid[key]))
+			
+		btype = 'org.eclipse.cdt.build.core.buildType=org.eclipse.cdt.build.core.buildType.%s' % key
+		atype = 'org.eclipse.cdt.build.core.buildArtefactType=%s' % config.get('buildArtefactType')
+		config.set('buildProperties', '%s,%s' % (btype, atype))
+	
+		folder = config.find('folderInfo')
+		folder.set('id','cdt.managedbuild.config.gnu.so.%s.%s.' % (key, self.uuid[key]))
+		self.update_toolchain(folder, key, name)
+		cconfiguration.append(module)
+
+	def update_toolchain(self, folder, key, name):
+		toolchain = folder.find('toolChain')
+		toolchain.set('id', 'cdt.managedbuild.toolchain.gnu.%s.%s.%s' % (self.kind, key, self.uuid[key]))
+		toolchain.set('superClass', 'cdt.managedbuild.toolchain.gnu.%s.%s' % (self.kind, key))
+
+		target = toolchain.find('targetPlatform')
+		target.set('id', 'cdt.managedbuild.target.gnu.platform.%s.%s.%s' % (self.kind, key, self.uuid[key]))
+		target.set('name', '%s Platform' % name)
+		target.set('superClass', 'cdt.managedbuild.target.gnu.platform.%s.%s' % (self.kind, key))
+
+		builder = toolchain.find('builder')
+		builder.set('buildPath', '${workspace_loc:/%s}/%s' % (self.gen.get_name(), name))
+		builder.set('id', 'cdt.managedbuild.target.gnu.builder.%s.%s.%s' % (self.kind, key, self.uuid[key]))
+		builder.set('superClass', 'cdt.managedbuild.target.gnu.builder.%s.%s' % (self.kind, key))
 
 
 ECLIPSE_PROJECT = \
@@ -286,7 +342,6 @@ ECLIPSE_PROJECT = \
 	<natures>
 	</natures>
 </projectDescription>
-
 '''
 
 
@@ -302,11 +357,10 @@ ECLIPSE_PYDEVPROJECT = \
 	<pydev_pathproperty name="org.python.pydev.PROJECT_EXTERNAL_SOURCE_PATH">
 	</pydev_pathproperty>
 </pydev_project>
-
 '''
 
 
-ECLIPSE_CPROJECT = \
+ECLIPSE_CDT_PROJECT = \
 '''<?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <?fileVersion 4.0.0?>
 <cproject storage_type_id="org.eclipse.cdt.core.XmlProjectDescriptionStorage">
@@ -330,5 +384,38 @@ ECLIPSE_CPROJECT = \
 '''
 
 
+ECLIPSE_CDT_DATAPROVIDER = '''
+<storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="" moduleId="org.eclipse.cdt.core.settings" name="">
+	<externalSettings>
+		<externalSetting>
+			<entry flags="VALUE_WORKSPACE_PATH" kind="includePath" name=""/>
+			<entry flags="VALUE_WORKSPACE_PATH" kind="libraryPath" name=""/>
+			<entry flags="RESOLVED" kind="libraryFile" name="" srcPrefixMapping="" srcRootPath=""/>
+		</externalSetting>
+	</externalSettings>
+	<extensions>
+		<extension id="org.eclipse.cdt.core.GmakeErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+		<extension id="org.eclipse.cdt.core.CWDLocator" point="org.eclipse.cdt.core.ErrorParser"/>
+		<extension id="org.eclipse.cdt.core.GCCErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+		<extension id="org.eclipse.cdt.core.GASErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+		<extension id="org.eclipse.cdt.core.GLDErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+		<extension id="org.eclipse.cdt.core.ELF" point="org.eclipse.cdt.core.BinaryParser"/>
+	</extensions>
+</storageModule>
+'''
+
+
+ECLIPSE_CDT_BUILDSYSTEM = '''
+<storageModule moduleId="cdtBuildSystem" version="4.0.0">
+	<configuration artifactName="${ProjName}" buildArtefactType="" buildProperties="" cleanCommand="rm -rf" description="" id="" name="" parent="">
+		<folderInfo id="" name="/" resourcePath="">
+			<toolChain id="" name="Linux GCC" superClass="">
+				<targetPlatform id="" name="" superClass=""/>
+				<builder buildPath="" id="" keepEnvironmentInBuildfile="false" managedBuildOn="true" name="Gnu Make Builder" superClass=""/>
+			</toolChain>
+		</folderInfo>
+	</configuration>
+</storageModule>
+'''
 
 
