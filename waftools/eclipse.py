@@ -4,11 +4,15 @@
 
 # TODO: add RPATH ??
 # TODO: change build location to waf build location ?? 
-#       -> hard to realize in Eclipse as soon as binary is not in projec directory
+#       -> hard to realize in Eclipse as soon as binary is not in project directory
 #       CDT no longer is able to find it !?
+#       options:
+#       - could use Eclipse 'linked folder'
+#       - build local but start in installation directory
 # TODO: find workaround for multiple taskgen's in the same wscript/directory,
 #       since they cannot coexist in the same .cproject file (at the same location).
-# TODO: create debug and run launchers for executables
+# TODO: Add waf commands to top level PyDev project (abuse CDT for this purpose).
+
 
 import os
 import xml.etree.ElementTree as ElementTree
@@ -203,6 +207,7 @@ class CDTProject(Project):
 			'cpp_release_compiler': self.get_uuid(),
 			'cpp_release_input': self.get_uuid(),
 		}
+
 		if self.is_shlib:
 			self.kind_name = 'Shared Library'
 			self.kind = 'so'
@@ -212,14 +217,24 @@ class CDTProject(Project):
 		else:
 			self.kind_name = 'Executable'
 			self.kind = 'exe'
+			self.launch = CDTLaunch(bld, gen, self.uuid['release'])
+			self.launch_debug = CDTLaunchDebug(bld, gen, self.uuid['debug'])
 
 	def export(self):
 		super(CDTProject, self).export()
 		self.project.export()
+		if hasattr(self, 'launch'):
+			self.launch.export()
+		if hasattr(self, 'launch_debug'):
+			self.launch_debug.export()
 
 	def cleanup(self):
 		super(CDTProject, self).cleanup()
 		self.project.cleanup()
+		if hasattr(self, 'launch'):
+			self.launch.cleanup()
+		if hasattr(self, 'launch_debug'):
+			self.launch_debug.cleanup()
 
 	def get_fname(self):
 		return '%s/.cproject' % (self.gen.path.relpath().replace('\\', '/'))
@@ -549,6 +564,57 @@ class CDTProject(Project):
 		return language in self.gen.features
 
 
+class CDTLaunch(Project):
+	def __init__(self, bld, gen, uuid):
+		super(CDTLaunch, self).__init__(bld, gen)
+		self.comments = ['<?xml version="1.0" encoding="UTF-8" standalone="no"?>']
+		self.template = ECLIPSE_CDT_LAUNCH_RELEASE
+		self.build_dir = 'Release'
+		self.build_config_id = 'cdt.managedbuild.config.gnu.exe.release.%s' % uuid
+
+	def get_fname(self):
+		name = '%s(release).launch' % self.gen.get_name()
+		if self.gen:
+			name = '%s/%s' % (self.gen.path.relpath(), name)
+		return name.replace('\\', '/')
+
+	def get_content(self):
+		root = ElementTree.fromstring(self.template)
+		for attrib in root.iter('stringAttribute'):
+			if attrib.get('key') == 'org.eclipse.cdt.launch.PROGRAM_NAME':
+				attrib.set('value', '%s/%s' % (self.build_dir, self.gen.get_name()))
+			if attrib.get('key') == 'org.eclipse.cdt.launch.PROJECT_ATTR':
+				attrib.set('value', self.gen.get_name())
+			if attrib.get('key') == 'org.eclipse.cdt.launch.PROJECT_BUILD_CONFIG_ID_ATTR':
+				attrib.set('value', self.build_config_id)
+		for attrib in root.iter('listAttribute'):
+			if attrib.get('key') == 'org.eclipse.debug.core.MAPPED_RESOURCE_PATHS':
+				attrib.find('listEntry').set('value', '/%s' % self.gen.get_name())
+
+		attrib = root.find('mapAttribute')
+		for use in getattr(self.gen, 'use', []):
+			tgen = self.bld.get_tgen_by_name(use)
+			if set(('cshlib', 'cxxshlib')) & set(tgen.features):
+				mapentry = ElementTree.SubElement(attrib, 'mapEntry', {'key':'LD_LIBRARY_PATH'})
+				mapentry.set('value', '${workspace_loc:/%s}/Release' % tgen.get_name())
+
+		return ElementTree.tostring(root)
+
+
+class CDTLaunchDebug(CDTLaunch):
+	def __init__(self, bld, gen, uuid):
+		super(CDTLaunchDebug, self).__init__(bld, gen, uuid)
+		self.template = ECLIPSE_CDT_LAUNCH_DEBUG
+		self.build_dir = 'Debug'
+		self.build_config_id = 'cdt.managedbuild.config.gnu.exe.debug.%s' % uuid
+
+	def get_fname(self):
+		name = '%s(debug).launch' % self.gen.get_name()
+		if self.gen:
+			name = '%s/%s' % (self.gen.path.relpath(), name)
+		return name.replace('\\', '/')
+
+
 ECLIPSE_PROJECT = \
 '''<?xml version="1.0" encoding="UTF-8"?>
 <projectDescription>
@@ -636,6 +702,73 @@ ECLIPSE_CDT_BUILDSYSTEM = '''
 		</folderInfo>
 	</configuration>
 </storageModule>
+'''
+
+
+ECLIPSE_CDT_LAUNCH_DEBUG = \
+'''<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<launchConfiguration type="org.eclipse.cdt.launch.applicationLaunchType">
+	<stringAttribute key="org.eclipse.cdt.debug.mi.core.DEBUG_NAME" value="gdb"/>
+	<stringAttribute key="org.eclipse.cdt.debug.mi.core.GDB_INIT" value=".gdbinit"/>
+	<stringAttribute key="org.eclipse.cdt.debug.mi.core.commandFactory" value="org.eclipse.cdt.debug.mi.core.standardLinuxCommandFactory"/>
+	<booleanAttribute key="org.eclipse.cdt.debug.mi.core.verboseMode" value="false"/>
+	<booleanAttribute key="org.eclipse.cdt.dsf.gdb.AUTO_SOLIB" value="true"/>
+	<listAttribute key="org.eclipse.cdt.dsf.gdb.AUTO_SOLIB_LIST"/>
+	<stringAttribute key="org.eclipse.cdt.dsf.gdb.DEBUG_NAME" value="gdb"/>
+	<booleanAttribute key="org.eclipse.cdt.dsf.gdb.DEBUG_ON_FORK" value="false"/>
+	<stringAttribute key="org.eclipse.cdt.dsf.gdb.GDB_INIT" value=".gdbinit"/>
+	<booleanAttribute key="org.eclipse.cdt.dsf.gdb.NON_STOP" value="false"/>
+	<booleanAttribute key="org.eclipse.cdt.dsf.gdb.REVERSE" value="false"/>
+	<listAttribute key="org.eclipse.cdt.dsf.gdb.SOLIB_PATH"/>
+	<stringAttribute key="org.eclipse.cdt.dsf.gdb.TRACEPOINT_MODE" value="TP_NORMAL_ONLY"/>
+	<booleanAttribute key="org.eclipse.cdt.dsf.gdb.UPDATE_THREADLIST_ON_SUSPEND" value="false"/>
+	<booleanAttribute key="org.eclipse.cdt.dsf.gdb.internal.ui.launching.LocalApplicationCDebuggerTab.DEFAULTS_SET" value="true"/>
+	<intAttribute key="org.eclipse.cdt.launch.ATTR_BUILD_BEFORE_LAUNCH_ATTR" value="2"/>
+	<stringAttribute key="org.eclipse.cdt.launch.DEBUGGER_ID" value="gdb"/>
+	<stringAttribute key="org.eclipse.cdt.launch.DEBUGGER_START_MODE" value="run"/>
+	<booleanAttribute key="org.eclipse.cdt.launch.DEBUGGER_STOP_AT_MAIN" value="true"/>
+	<stringAttribute key="org.eclipse.cdt.launch.DEBUGGER_STOP_AT_MAIN_SYMBOL" value="main"/>
+	<stringAttribute key="org.eclipse.cdt.launch.PROGRAM_NAME" value=""/>
+	<stringAttribute key="org.eclipse.cdt.launch.PROJECT_ATTR" value=""/>
+	<stringAttribute key="org.eclipse.cdt.launch.PROJECT_BUILD_CONFIG_ID_ATTR" value="cdt.managedbuild.config.gnu.exe.debug.1878333522"/>
+	<booleanAttribute key="org.eclipse.cdt.launch.use_terminal" value="true"/>
+	<listAttribute key="org.eclipse.debug.core.MAPPED_RESOURCE_PATHS">
+		<listEntry value=""/>
+	</listAttribute>
+	<listAttribute key="org.eclipse.debug.core.MAPPED_RESOURCE_TYPES">
+		<listEntry value="4"/>
+	</listAttribute>
+	<mapAttribute key="org.eclipse.debug.core.environmentVariables">
+	</mapAttribute>
+	<stringAttribute key="org.eclipse.dsf.launch.MEMORY_BLOCKS" value="&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot; standalone=&quot;no&quot;?&gt;&#10;&lt;memoryBlockExpressionList context=&quot;reserved-for-future-use&quot;/&gt;&#10;"/>
+	<stringAttribute key="process_factory_id" value="org.eclipse.cdt.dsf.gdb.GdbProcessFactory"/>
+</launchConfiguration>
+'''
+
+
+ECLIPSE_CDT_LAUNCH_RELEASE = \
+'''<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<launchConfiguration type="org.eclipse.cdt.launch.applicationLaunchType">
+	<stringAttribute key="org.eclipse.cdt.debug.mi.core.DEBUG_NAME" value="gdb"/>
+	<stringAttribute key="org.eclipse.cdt.debug.mi.core.GDB_INIT" value=".gdbinit"/>
+	<stringAttribute key="org.eclipse.cdt.debug.mi.core.commandFactory" value="org.eclipse.cdt.debug.mi.core.standardLinuxCommandFactory"/>
+	<booleanAttribute key="org.eclipse.cdt.debug.mi.core.verboseMode" value="false"/>
+	<intAttribute key="org.eclipse.cdt.launch.ATTR_BUILD_BEFORE_LAUNCH_ATTR" value="2"/>
+	<stringAttribute key="org.eclipse.cdt.launch.DEBUGGER_ID" value="org.eclipse.cdt.debug.mi.core.CDebuggerNew"/>
+	<stringAttribute key="org.eclipse.cdt.launch.DEBUGGER_START_MODE" value="run"/>
+	<stringAttribute key="org.eclipse.cdt.launch.PROGRAM_NAME" value=""/>
+	<stringAttribute key="org.eclipse.cdt.launch.PROJECT_ATTR" value=""/>
+	<stringAttribute key="org.eclipse.cdt.launch.PROJECT_BUILD_CONFIG_ID_ATTR" value=""/>
+	<booleanAttribute key="org.eclipse.cdt.launch.use_terminal" value="true"/>
+	<listAttribute key="org.eclipse.debug.core.MAPPED_RESOURCE_PATHS">
+		<listEntry value=""/>
+	</listAttribute>
+	<listAttribute key="org.eclipse.debug.core.MAPPED_RESOURCE_TYPES">
+		<listEntry value="4"/>
+	</listAttribute>
+	<mapAttribute key="org.eclipse.debug.core.environmentVariables">
+	</mapAttribute>
+</launchConfiguration>
 '''
 
 
