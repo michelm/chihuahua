@@ -3,9 +3,12 @@
 # Michel Mooij, michel.mooij7@gmail.com
 
 # TODO: add RPATH ??
-# TODO: change build location to waf build location ??
+# TODO: change build location to waf build location ?? 
+#       -> hard to realize in Eclipse as soon as binary is not in projec directory
+#       CDT no longer is able to find it !?
 # TODO: find workaround for multiple taskgen's in the same wscript/directory,
 #       since they cannot coexist in the same .cproject file (at the same location).
+# TODO: create debug and run launchers for executables
 
 import os
 import xml.etree.ElementTree as ElementTree
@@ -170,11 +173,19 @@ class CDTProject(Project):
 		super(CDTProject, self).__init__(bld, gen)
 		self.targets = targets
 		self.project = Project(bld, gen)
-		self.comments = ['<?xml version="1.0" encoding="UTF-8" standalone="no"?>','<?fileVersion 4.0.0?>']		
+		self.comments = ['<?xml version="1.0" encoding="UTF-8" standalone="no"?>','<?fileVersion 4.0.0?>']
+
+		if 'cxx' in self.gen.features:
+			self.language = 'cpp'
+		else:
+			self.language = 'c'
+	
 		self.is_program = set(('cprogram', 'cxxprogram')) & set(self.gen.features)
 		self.is_shlib = set(('cshlib', 'cxxshlib')) & set(self.gen.features)
 		self.is_stlib = set(('cstlib', 'cxxstlib')) & set(self.gen.features)
 		self.project.natures.append('org.eclipse.cdt.core.cnature')
+		if self.language == 'cpp':
+			self.project.natures.append('org.eclipse.cdt.core.ccnature')
 		self.project.natures.append('org.eclipse.cdt.managedbuilder.core.managedBuildNature')
 		self.project.natures.append('org.eclipse.cdt.managedbuilder.core.ScannerConfigNature')
 		self.project.buildcommands.append(('org.eclipse.cdt.managedbuilder.core.genmakebuilder', 'clean,full,incremental,', ''))
@@ -183,12 +194,10 @@ class CDTProject(Project):
 		self.uuid = {
 			'debug': self.get_uuid(),
 			'release': self.get_uuid(),
-
 			'c_debug_compiler': self.get_uuid(),
 			'c_debug_input': self.get_uuid(),
 			'c_release_compiler': self.get_uuid(),
 			'c_release_input': self.get_uuid(),
-
 			'cpp_debug_compiler': self.get_uuid(),
 			'cpp_debug_input': self.get_uuid(),
 			'cpp_release_compiler': self.get_uuid(),
@@ -203,10 +212,6 @@ class CDTProject(Project):
 		else:
 			self.kind_name = 'Executable'
 			self.kind = 'exe'
-
-		self.language = 'c'
-		if 'cxx' in self.gen.features:
-			self.language = 'cpp'
 
 	def export(self):
 		super(CDTProject, self).export()
@@ -319,8 +324,8 @@ class CDTProject(Project):
 			config.set('buildArtefactType', 'org.eclipse.cdt.build.core.buildArtefactType.exe')
 
 		config.set('parent', 'cdt.managedbuild.config.gnu.%s.%s' % (self.kind, key))
-		config.set('id', 'cdt.managedbuild.config.gnu.%s.%s.%s' % (self.kind, key, self.uuid[key]))
-			
+		config.set('id', '%s.%s' % (config.get('parent'), self.uuid[key]))
+
 		btype = 'org.eclipse.cdt.build.core.buildType=org.eclipse.cdt.build.core.buildType.%s' % key
 		atype = 'org.eclipse.cdt.build.core.buildArtefactType=%s' % config.get('buildArtefactType')
 		config.set('buildProperties', '%s,%s' % (btype, atype))
@@ -332,26 +337,25 @@ class CDTProject(Project):
 
 	def update_toolchain(self, folder, key, name):
 		toolchain = folder.find('toolChain')
-		toolchain.set('id', 'cdt.managedbuild.toolchain.gnu.%s.%s.%s' % (self.kind, key, self.get_uuid()))
 		toolchain.set('superClass', 'cdt.managedbuild.toolchain.gnu.%s.%s' % (self.kind, key))
+		toolchain.set('id', '%s.%s' % (toolchain.get('superClass'), self.get_uuid()))
 
 		target = toolchain.find('targetPlatform')
-		target.set('id', 'cdt.managedbuild.target.gnu.platform.%s.%s.%s' % (self.kind, key, self.get_uuid()))
 		target.set('name', '%s Platform' % name)
 		target.set('superClass', 'cdt.managedbuild.target.gnu.platform.%s.%s' % (self.kind, key))
+		target.set('id', '%s.%s' % (target.get('superClass'), self.get_uuid()))
 
 		builder = toolchain.find('builder')
 		builder.set('buildPath', '${workspace_loc:/%s}/%s' % (self.gen.get_name(), key.title()))
-		builder.set('id', 'cdt.managedbuild.target.gnu.builder.%s.%s.%s' % (self.kind, key, self.get_uuid()))
 		builder.set('superClass', 'cdt.managedbuild.target.gnu.builder.%s.%s' % (self.kind, key))
+		builder.set('id', '%s.%s' % (builder.get('superClass'), self.get_uuid()))
 
 		archiver = ElementTree.SubElement(toolchain, 'tool', {'name':'GCC Archiver'})
 		if self.is_stlib:
-			asc = 'cdt.managedbuild.tool.gnu.archiver.lib.%s' % key
+			archiver.set('superClass', 'cdt.managedbuild.tool.gnu.archiver.lib.%s' % key)
 		else:
-			asc = 'cdt.managedbuild.tool.gnu.archiver.base'
-		archiver.set('id', '%s.%s' % (asc,self.get_uuid()))
-		archiver.set('superClass', asc)
+			archiver.set('superClass', 'cdt.managedbuild.tool.gnu.archiver.base')
+		archiver.set('id', '%s.%s' % (archiver.get('superClass'), self.get_uuid()))
 
 		self.add_compiler(toolchain, key, 'cpp', 'GCC C++ Compiler')
 		self.add_compiler(toolchain, key, 'c', 'GCC C Compiler')
@@ -359,16 +363,17 @@ class CDTProject(Project):
 		self.add_linker(toolchain, key, 'cpp', 'GCC C++ Linker')
 
 		assembler = ElementTree.SubElement(toolchain, 'tool', {'name':'GCC Assembler'})
-		assembler.set('id', 'cdt.managedbuild.tool.gnu.assembler.%s.%s.%s' % (self.kind, key, self.get_uuid()))
 		assembler.set('superClass', 'cdt.managedbuild.tool.gnu.assembler.%s.%s' % (self.kind, key))
-		inputtype = ElementTree.SubElement(assembler, 'inputType', {'superClass':'cdt.managedbuild.tool.gnu.assembler.input'})
-		inputtype.set('id', 'cdt.managedbuild.tool.gnu.assembler.input.%s' % self.get_uuid())
+		assembler.set('id', '%s.%s' % (assembler.get('superClass'), self.get_uuid()))
+		inputtype = ElementTree.SubElement(assembler, 'inputType')
+		inputtype.set('superClass', 'cdt.managedbuild.tool.gnu.assembler.input')
+		inputtype.set('id', '%s.%s' % (inputtype.get('superClass'), self.get_uuid()))
 
 	def add_compiler(self, toolchain, key, language, name):
 		uuid = self.uuid['%s_%s_compiler' % (language, key)]
 		compiler = ElementTree.SubElement(toolchain, 'tool', {'name' : name})
-		compiler.set('id', 'cdt.managedbuild.tool.gnu.%s.compiler.%s.%s.%s' % (language, self.kind, key, uuid))
 		compiler.set('superClass', 'cdt.managedbuild.tool.gnu.%s.compiler.%s.%s' % (language, self.kind, key))
+		compiler.set('id', '%s.%s' % (compiler.get('superClass'), uuid))
 		self.add_cc_options(compiler, key, language)
 		self.add_cc_includes(compiler, key, language)
 		self.add_cc_preprocessor(compiler, key, language)
@@ -386,16 +391,17 @@ class CDTProject(Project):
 			debug_level = 'none'
 
 		option = ElementTree.SubElement(compiler, 'option', {'name':'Optimization Level', 'valueType':'enumerated'})
-		option.set('id', 'gnu.%s.compiler.%s.%s.option.optimization.level.%s' % (language, self.kind, key, self.get_uuid()))
 		option.set('superClass', 'gnu.%s.compiler.%s.%s.option.optimization.level' % (language, self.kind, key))
+		option.set('id', '%s.%s' % (option.get('superClass'), self.get_uuid()))
+
 		if language == 'cpp':
 			option.set('value', 'gnu.cpp.compiler.optimization.level.%s' % (optimization_level))
 		else:
 			option.set('value', 'gnu.c.optimization.level.%s' % (optimization_level))
 
 		option = ElementTree.SubElement(compiler, 'option', {'name':'Debug Level', 'valueType':'enumerated'})
-		option.set('id', 'gnu.%s.compiler.%s.%s.option.debugging.level.%s' % (language, self.kind, key, self.get_uuid()))
 		option.set('superClass', 'gnu.%s.compiler.%s.%s.option.debugging.level' % (language, self.kind, key))
+		option.set('id', '%s.%s' % (option.get('superClass'), self.get_uuid()))
 		if language == 'cpp':
 			option.set('value', 'gnu.cpp.compiler.debugging.level.%s' % (debug_level))
 		else:
@@ -403,8 +409,8 @@ class CDTProject(Project):
 
 		if self.is_shlib and self.is_language(language):
 			option = ElementTree.SubElement(compiler, 'option', {'value':'true','valueType':'boolean'})
-			option.set('id', 'gnu.%s.compiler.option.misc.pic.%s' % (language, self.get_uuid()))
 			option.set('superClass', 'gnu.%s.compiler.option.misc.pic' % language)
+			option.set('id', '%s.%s' % (option.get('superClass'), self.get_uuid()))
 
 	def add_cc_includes(self, compiler, key, language):
 		if not self.is_language(language):
@@ -413,12 +419,15 @@ class CDTProject(Project):
 		includes = getattr(self.gen, 'includes', [])
 		if not len(uses) and not len(includes):
 			return
+
 		option = ElementTree.SubElement(compiler, 'option', {'name':'Include paths (-I)', 'valueType':'includePath'})
-		option.set('id', 'gnu.%s.compiler.option.include.paths.%s' % (language, self.get_uuid()))
 		option.set('superClass', 'gnu.%s.compiler.option.include.paths' % (language))
+		option.set('id', '%s.%s' % (option.get('superClass'), self.get_uuid()))
+
 		for include in [str(i).lstrip('./') for i in includes]:
 			listoption = ElementTree.SubElement(option, 'listOptionValue', {'builtIn':'false'})
 			listoption.set('value', '"${workspace_loc:/${ProjName}/%s}"' % (include))
+
 		for use in uses:			
 			tgen = self.bld.get_tgen_by_name(use)
 			includes = getattr(tgen, 'export_includes', [])
@@ -429,14 +438,22 @@ class CDTProject(Project):
 	def add_cc_preprocessor(self, compiler, key, language):
 		if not self.is_language(language):
 			return
-		defines = self.gen.env.DEFINES
+		defines = list(self.gen.env.DEFINES)
+		if key == 'debug':
+			defines.remove('NDEBUG')
 		if not len(defines):
 			return
 		defines = [d.replace('"', '\\"') for d in defines]
 
+		if language == 'cpp':
+			superclass = 'gnu.cpp.compiler.option.preprocessor.def'
+		else:
+			superclass = 'gnu.c.compiler.option.preprocessor.def.symbols'
+
 		option = ElementTree.SubElement(compiler, 'option', {'name':'Defined symbols (-D)', 'valueType':'definedSymbols'})
-		option.set('id', 'gnu.%s.compiler.option.preprocessor.def.symbols.%s' % (language, self.get_uuid()))
-		option.set('superClass', 'gnu.%s.compiler.option.preprocessor.def.symbols' % (language))
+		option.set('superClass', superclass)
+		option.set('id', '%s.%s' % (superclass, self.get_uuid()))
+
 		for define in defines:
 			listoption = ElementTree.SubElement(option, 'listOptionValue', {'builtIn':'false'})
 			listoption.set('value', define)
@@ -444,27 +461,31 @@ class CDTProject(Project):
 	def add_cc_input(self, compiler, key, language):
 		if not compiler.get('id').count('.%s.' % language):
 			return
+
 		uuid = self.uuid['%s_%s_input' % (language, key)]
 		inputtype = ElementTree.SubElement(compiler, 'inputType')
 		inputtype.set('superClass', 'cdt.managedbuild.tool.gnu.%s.compiler.input' % (language))
-		inputtype.set('id', 'cdt.managedbuild.tool.gnu.%s.compiler.input.%s' % (language, uuid))
+		inputtype.set('id', '%s.%s' % (inputtype.get('superClass'), uuid))
+		
 		if self.is_shlib:
 			ElementTree.SubElement(inputtype, 'additionalInput', {'kind':'additionalinputdependency', 'paths':'$(USER_OBJS)'})
 			ElementTree.SubElement(inputtype, 'additionalInput', {'kind':'additionalinput', 'paths':'$(LIBS)'})
 
 	def add_linker(self, toolchain, key, language, name):
-		linker = ElementTree.SubElement(toolchain, 'tool', {'name':name})
 		if self.is_stlib:
-			linker.set('id', 'cdt.managedbuild.tool.gnu.%s.linker.base.%s' % (language, self.get_uuid()))
-			linker.set('superClass', 'cdt.managedbuild.tool.gnu.%s.linker.base' % (language))
+			superclass = 'cdt.managedbuild.tool.gnu.%s.linker.base' % (language)
 		else:
-			linker.set('id', 'cdt.managedbuild.tool.gnu.%s.linker.%s.%s.%s' % (language, self.kind, key, self.get_uuid()))
-			linker.set('superClass', 'cdt.managedbuild.tool.gnu.%s.linker.%s.%s' % (language, self.kind, key))
+			superclass = 'cdt.managedbuild.tool.gnu.%s.linker.%s.%s' % (language, self.kind, key)
+
+		linker = ElementTree.SubElement(toolchain, 'tool', {'name':name})
+		linker.set('superClass', superclass)
+		linker.set('id', '%s.%s' % (superclass, self.get_uuid()))
 
 		if self.is_shlib:
 			option = ElementTree.SubElement(linker, 'option', {'name':'Shared (-shared)', 'defaultValue':'true', 'valueType':'boolean'})
-			option.set('id', 'gnu.%s.link.so.%s.option.shared.%s' % (language, key, self.get_uuid()))
 			option.set('superClass', 'gnu.%s.link.so.%s.option.shared' % (language, key))
+			option.set('id', '%s.%s' % (option.get('superClass'), self.get_uuid()))
+
 		self.add_linker_libs(linker, key, language)
 		self.add_linker_lib_paths(linker, key, language)
 		self.add_linker_input(linker, key, language)
@@ -473,6 +494,7 @@ class CDTProject(Project):
 	def add_linker_libs(self, linker, key, language):
 		if not self.is_language(language):
 			return
+
 		libs = getattr(self.gen, 'lib', [])
 		for use in getattr(self.gen, 'use', []):
 			tgen = self.bld.get_tgen_by_name(use)
@@ -480,9 +502,11 @@ class CDTProject(Project):
 				libs.append(tgen.get_name())
 		if not len(libs):
 			return
+
 		option = ElementTree.SubElement(linker, 'option', {'name':'Libraries (-l)', 'valueType':'libs'})
-		option.set('id', 'gnu.%s.link.option.libs.%s' % (language, self.get_uuid()))
 		option.set('superClass', 'gnu.%s.link.option.libs' % (language))
+		option.set('id', '%s.%s' % (option.get('superClass'), self.get_uuid()))
+
 		for lib in libs:
 			listoption = ElementTree.SubElement(option, 'listOptionValue', {'builtIn':'false'})
 			listoption.set('value', lib)
@@ -490,6 +514,7 @@ class CDTProject(Project):
 	def add_linker_lib_paths(self, linker, key, language):
 		if not self.is_language(language):
 			return
+
 		libs = [] # TODO: add env.LIBDIR ??
 		for use in getattr(self.gen, 'use', []):
 			tgen = self.bld.get_tgen_by_name(use)
@@ -497,9 +522,11 @@ class CDTProject(Project):
 				libs.append(tgen.get_name())
 		if not len(libs):
 			return
+
 		option = ElementTree.SubElement(linker, 'option', {'name':'Library search path (-L)', 'valueType':'libPaths'})
-		option.set('id', 'gnu.%s.link.option.paths.%s' % (language, self.get_uuid()))
 		option.set('superClass', 'gnu.%s.link.option.paths' % (language))
+		option.set('id', '%s.%s' % (option.get('superClass'), self.get_uuid()))
+
 		for lib in libs:
 			listoption = ElementTree.SubElement(option, 'listOptionValue', {'builtIn':'false'})
 			listoption.set('value', '"${workspace_loc:/%s/%s}"' % (lib, key.title()))
@@ -509,9 +536,10 @@ class CDTProject(Project):
 			return
 		if self.is_stlib:
 			return
+
 		inputtype = ElementTree.SubElement(linker, 'inputType')
-		inputtype.set('id', 'cdt.managedbuild.tool.gnu.%s.linker.input.%s' % (language, self.get_uuid()))
 		inputtype.set('superClass', 'cdt.managedbuild.tool.gnu.%s.linker.input' % (language))
+		inputtype.set('id', '%s.%s' % (inputtype.get('superClass'), self.get_uuid()))
 		ElementTree.SubElement(inputtype, 'additionalInput', {'kind':'additionalinputdependency', 'paths':'$(USER_OBJS)'})
 		ElementTree.SubElement(inputtype, 'additionalInput', {'kind':'additionalinput', 'paths':'$(LIBS)'})
 
@@ -519,7 +547,6 @@ class CDTProject(Project):
 		if language == 'cpp':
 			language = 'cxx'
 		return language in self.gen.features
-
 
 
 ECLIPSE_PROJECT = \
