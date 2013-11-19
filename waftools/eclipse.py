@@ -5,7 +5,7 @@
 # TODO: add RPATH ??
 # TODO: change build location to waf build location ??
 # TODO: find workaround for multiple taskgen's in the same wscript/directory,
-#       since they cannont coexist in the same .cproject file.
+#       since they cannot coexist in the same .cproject file (at the same location).
 
 import os
 import xml.etree.ElementTree as ElementTree
@@ -131,10 +131,7 @@ class PyDevProject(Project):
 		self.project.natures.append('org.python.pydev.pythonNature')
 		self.project.buildcommands.append(('org.python.pydev.PyDevBuilder', None, ''))
 		self.ext_source_paths = []
-		self.comments = [
-			'<?xml version="1.0" encoding="UTF-8" standalone="no"?>',
-			'<?eclipse-pydev version="1.0"?>'
-		]
+		self.comments = ['<?xml version="1.0" encoding="UTF-8" standalone="no"?>','<?eclipse-pydev version="1.0"?>']
 
 	def export(self):
 		super(PyDevProject, self).export()
