@@ -1,15 +1,20 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <hello.h>
 
 int main(int argc, char* argv[])
 {
-	return say_hello();
+	char buf[1024];
+
+	say_hello();
+
+	printf("The current directory is: %s\n", getcwd(buf, sizeof(buf)));
+	return EXIT_SUCCESS;
 }
 
-int say_hello()
+void say_hello()
 {
 	printf("Hello! (version %s)\n", HELLO_VERSION);
-	return EXIT_SUCCESS;
 }

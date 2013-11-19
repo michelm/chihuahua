@@ -1,10 +1,19 @@
 *.pyc
 *~
+*.tar.gz
+
 .lock-waf*
 .settings/*
+
 build/*
 reports/*
-*.mk
-Makefile
 output/*
+
+Makefile
+*.mk
+
+.cproject
+.project
+.pydevproject
+
 

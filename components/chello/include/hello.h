@@ -1,3 +1,3 @@
 
-int say_hello();
+void say_hello();
 
