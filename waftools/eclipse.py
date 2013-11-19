@@ -4,6 +4,8 @@
 
 # TODO: add RPATH ??
 # TODO: change build location to waf build location ??
+# TODO: find workaround for multiple taskgen's in the same wscript/directory,
+#       since they cannont coexist in the same .cproject file.
 
 import os
 import xml.etree.ElementTree as ElementTree
@@ -183,11 +185,17 @@ class CDTProject(Project):
 
 		self.uuid = {
 			'debug': self.get_uuid(),
-			'debug_compiler': self.get_uuid(),
-			'debug_input': self.get_uuid(),
 			'release': self.get_uuid(),
-			'release_compiler': self.get_uuid(),
-			'release_input': self.get_uuid(),
+
+			'c_debug_compiler': self.get_uuid(),
+			'c_debug_input': self.get_uuid(),
+			'c_release_compiler': self.get_uuid(),
+			'c_release_input': self.get_uuid(),
+
+			'cpp_debug_compiler': self.get_uuid(),
+			'cpp_debug_input': self.get_uuid(),
+			'cpp_release_compiler': self.get_uuid(),
+			'cpp_release_input': self.get_uuid(),
 		}
 		if self.is_shlib:
 			self.kind_name = 'Shared Library'
@@ -239,15 +247,20 @@ class CDTProject(Project):
 		ElementTree.SubElement(module, 'project', attrib=attr)
 
 	def update_scannerconfiguration(self, module):
-		self.add_scanner_config_build_info(module, key='release')
-		self.add_scanner_config_build_info(module, key='debug')
+		self.add_scanner_config_build_info(module, key='release', language='c')
+		self.add_scanner_config_build_info(module, key='debug', language='c')
+		if self.language == 'cpp':
+			self.add_scanner_config_build_info(module, key='release', language='cpp')
+			self.add_scanner_config_build_info(module, key='debug', language='cpp')
 
-	def add_scanner_config_build_info(self, module, key):
+	def add_scanner_config_build_info(self, module, key, language):
+		cc_uuid = self.uuid['%s_%s_compiler' % (language, key)]
+		in_uuid = self.uuid['%s_%s_input' % (language, key)]
 		iid = [
 			"cdt.managedbuild.config.gnu.%s.%s.%s" % (self.kind, key, self.uuid[key]),
 			"cdt.managedbuild.config.gnu.%s.%s.%s." % (self.kind, key, self.uuid[key]),
-			"cdt.managedbuild.tool.gnu.%s.compiler.%s.%s.%s" % (self.language, self.kind, key, self.uuid['%s_compiler' % key]),
-			"cdt.managedbuild.tool.gnu.%s.compiler.input.%s" % (self.language, self.uuid['%s_input' % key])
+			"cdt.managedbuild.tool.gnu.%s.compiler.%s.%s.%s" % (language, self.kind, key, cc_uuid),
+			"cdt.managedbuild.tool.gnu.%s.compiler.input.%s" % (language, in_uuid)
 		]
 		element = ElementTree.SubElement(module, 'scannerConfigBuildInfo', {'instanceId':';'.join(iid)})
 
@@ -343,14 +356,8 @@ class CDTProject(Project):
 		archiver.set('id', '%s.%s' % (asc,self.get_uuid()))
 		archiver.set('superClass', asc)
 
-		c_uuid = self.uuid['%s_compiler' % key]
-		cpp_uuid = self.get_uuid()
-		if 'cxx' in self.gen.features:
-			cpp_uuid = c_uuid
-			c_uuid = self.get_uuid()
-
-		self.add_compiler(toolchain, key, 'cpp', 'GCC C++ Compiler', cpp_uuid)
-		self.add_compiler(toolchain, key, 'c', 'GCC C Compiler', c_uuid)
+		self.add_compiler(toolchain, key, 'cpp', 'GCC C++ Compiler')
+		self.add_compiler(toolchain, key, 'c', 'GCC C Compiler')
 		self.add_linker(toolchain, key, 'c', 'GCC C Linker')
 		self.add_linker(toolchain, key, 'cpp', 'GCC C++ Linker')
 
@@ -360,14 +367,17 @@ class CDTProject(Project):
 		inputtype = ElementTree.SubElement(assembler, 'inputType', {'superClass':'cdt.managedbuild.tool.gnu.assembler.input'})
 		inputtype.set('id', 'cdt.managedbuild.tool.gnu.assembler.input.%s' % self.get_uuid())
 
-	def add_compiler(self, toolchain, key, language, name, uuid):
+	def add_compiler(self, toolchain, key, language, name):
+		uuid = self.uuid['%s_%s_compiler' % (language, key)]
 		compiler = ElementTree.SubElement(toolchain, 'tool', {'name' : name})
 		compiler.set('id', 'cdt.managedbuild.tool.gnu.%s.compiler.%s.%s.%s' % (language, self.kind, key, uuid))
 		compiler.set('superClass', 'cdt.managedbuild.tool.gnu.%s.compiler.%s.%s' % (language, self.kind, key))
 		self.add_cc_options(compiler, key, language)
 		self.add_cc_includes(compiler, key, language)
 		self.add_cc_preprocessor(compiler, key, language)
-		self.add_cc_input(compiler, key, language)
+		self.add_cc_input(compiler, key, 'c')
+		if self.language == 'cpp':
+			self.add_cc_input(compiler, key, 'cpp')
 		return compiler
 
 	def add_cc_options(self, compiler, key, language):
@@ -435,19 +445,25 @@ class CDTProject(Project):
 			listoption.set('value', define)
 
 	def add_cc_input(self, compiler, key, language):
-		if not self.is_language(language):
+		if not compiler.get('id').count('.%s.' % language):
 			return
+		uuid = self.uuid['%s_%s_input' % (language, key)]
 		inputtype = ElementTree.SubElement(compiler, 'inputType')
 		inputtype.set('superClass', 'cdt.managedbuild.tool.gnu.%s.compiler.input' % (language))
-		inputtype.set('id', 'cdt.managedbuild.tool.gnu.%s.compiler.input.%s' % (language, self.uuid['%s_input' % key]))
+		inputtype.set('id', 'cdt.managedbuild.tool.gnu.%s.compiler.input.%s' % (language, uuid))
 		if self.is_shlib:
 			ElementTree.SubElement(inputtype, 'additionalInput', {'kind':'additionalinputdependency', 'paths':'$(USER_OBJS)'})
 			ElementTree.SubElement(inputtype, 'additionalInput', {'kind':'additionalinput', 'paths':'$(LIBS)'})
 
 	def add_linker(self, toolchain, key, language, name):
 		linker = ElementTree.SubElement(toolchain, 'tool', {'name':name})
-		linker.set('id', 'cdt.managedbuild.tool.gnu.%s.linker.%s.%s.%s' % (language, self.kind, key, self.get_uuid()))
-		linker.set('superClass', 'cdt.managedbuild.tool.gnu.%s.linker.%s.%s' % (language, self.kind, key))
+		if self.is_stlib:
+			linker.set('id', 'cdt.managedbuild.tool.gnu.%s.linker.base.%s' % (language, self.get_uuid()))
+			linker.set('superClass', 'cdt.managedbuild.tool.gnu.%s.linker.base' % (language))
+		else:
+			linker.set('id', 'cdt.managedbuild.tool.gnu.%s.linker.%s.%s.%s' % (language, self.kind, key, self.get_uuid()))
+			linker.set('superClass', 'cdt.managedbuild.tool.gnu.%s.linker.%s.%s' % (language, self.kind, key))
+
 		if self.is_shlib:
 			option = ElementTree.SubElement(linker, 'option', {'name':'Shared (-shared)', 'defaultValue':'true', 'valueType':'boolean'})
 			option.set('id', 'gnu.%s.link.so.%s.option.shared.%s' % (language, key, self.get_uuid()))
@@ -582,6 +598,7 @@ ECLIPSE_CDT_DATAPROVIDER = '''
 	</extensions>
 </storageModule>
 '''
+#TODO: GLDErrorParser not needed for static libs?
 
 
 ECLIPSE_CDT_BUILDSYSTEM = '''
