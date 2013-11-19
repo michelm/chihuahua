@@ -11,9 +11,8 @@
 #       - build local but start in installation directory
 # TODO: find workaround for multiple taskgen's in the same wscript/directory,
 #       since they cannot coexist in the same .cproject file (at the same location).
-# TODO: Add waf commands to top level PyDev project (abuse CDT for this purpose).
 
-
+import sys
 import os
 import xml.etree.ElementTree as ElementTree
 from xml.dom import minidom
@@ -105,9 +104,10 @@ class Project(object):
 			(name, triggers, arguments) = buildcommand
 			element = ElementTree.SubElement(buildspec, 'buildCommand')
 			ElementTree.SubElement(element, 'name').text = name
-			if triggers:
+			if triggers is not None:
 				ElementTree.SubElement(element, 'triggers').text = triggers
-			ElementTree.SubElement(element, 'arguments').text = arguments
+			if arguments is not None:
+				element.append(arguments)
 
 		natures = root.find('natures')
 		for nature in self.natures:
@@ -136,7 +136,7 @@ class PyDevProject(Project):
 		self.targets = targets
 		self.project = Project(bld, gen)
 		self.project.natures.append('org.python.pydev.pythonNature')
-		self.project.buildcommands.append(('org.python.pydev.PyDevBuilder', None, ''))
+		self.project.buildcommands.append(('org.python.pydev.PyDevBuilder', None, None))
 		self.ext_source_paths = []
 		self.comments = ['<?xml version="1.0" encoding="UTF-8" standalone="no"?>','<?eclipse-pydev version="1.0"?>']
 
@@ -170,7 +170,39 @@ class WafProject(PyDevProject):
 		self.ext_source_paths.append(path)
 		path = os.path.dirname(path).replace('\\', '/')
 		self.ext_source_paths.append(path)
-		
+		self.project.natures.append('org.eclipse.cdt.core.cnature')
+		self.project.natures.append('org.eclipse.cdt.core.ccnature')
+		self.project.natures.append('org.eclipse.cdt.managedbuilder.core.managedBuildNature')
+		self.project.natures.append('org.eclipse.cdt.managedbuilder.core.ScannerConfigNature')
+		self.cproject = WafCDT(bld)
+
+		a = ElementTree.Element('arguments')
+		d = ElementTree.SubElement(a, 'dictionary')
+		ElementTree.SubElement(d, 'key').text = 'org.eclipse.cdt.make.core.enableAutoBuild'
+		ElementTree.SubElement(d, 'value').text = 'false'
+
+		d = ElementTree.SubElement(a, 'dictionary')
+		ElementTree.SubElement(d, 'key').text = 'org.eclipse.cdt.make.core.enableCleanBuild'
+		ElementTree.SubElement(d, 'value').text = 'false'
+
+		d = ElementTree.SubElement(a, 'dictionary')
+		ElementTree.SubElement(d, 'key').text = 'org.eclipse.cdt.make.core.enableFullBuild'
+		ElementTree.SubElement(d, 'value').text = 'false'
+
+		d = ElementTree.SubElement(a, 'dictionary')
+		ElementTree.SubElement(d, 'key').text = 'org.eclipse.cdt.make.core.contents'
+		ElementTree.SubElement(d, 'value').text = 'org.eclipse.cdt.make.core.activeConfigSettings'
+
+		self.project.buildcommands.append(('org.eclipse.cdt.managedbuilder.core.genmakebuilder', 'clean,full,incremental,', a))
+
+	def export(self):
+		super(WafProject, self).export()
+		self.cproject.export()
+
+	def cleanup(self):
+		super(WafProject, self).cleanup()
+		self.cproject.cleanup()
+
 
 class CDTProject(Project):
 	def __init__(self, bld, gen, targets):
@@ -179,21 +211,28 @@ class CDTProject(Project):
 		self.project = Project(bld, gen)
 		self.comments = ['<?xml version="1.0" encoding="UTF-8" standalone="no"?>','<?fileVersion 4.0.0?>']
 
-		if 'cxx' in self.gen.features:
-			self.language = 'cpp'
+		if self.gen:
+			if 'cxx' in self.gen.features:
+				self.language = 'cpp'
+			else:
+				self.language = 'c'
+			self.is_program = set(('cprogram', 'cxxprogram')) & set(self.gen.features)
+			self.is_shlib = set(('cshlib', 'cxxshlib')) & set(self.gen.features)
+			self.is_stlib = set(('cstlib', 'cxxstlib')) & set(self.gen.features)
+
 		else:
-			self.language = 'c'
+			self.language = 'cpp'
+			self.is_program = False
+			self.is_shlib = False
+			self.is_stlib = False
 	
-		self.is_program = set(('cprogram', 'cxxprogram')) & set(self.gen.features)
-		self.is_shlib = set(('cshlib', 'cxxshlib')) & set(self.gen.features)
-		self.is_stlib = set(('cstlib', 'cxxstlib')) & set(self.gen.features)
 		self.project.natures.append('org.eclipse.cdt.core.cnature')
 		if self.language == 'cpp':
 			self.project.natures.append('org.eclipse.cdt.core.ccnature')
 		self.project.natures.append('org.eclipse.cdt.managedbuilder.core.managedBuildNature')
 		self.project.natures.append('org.eclipse.cdt.managedbuilder.core.ScannerConfigNature')
-		self.project.buildcommands.append(('org.eclipse.cdt.managedbuilder.core.genmakebuilder', 'clean,full,incremental,', ''))
-		self.project.buildcommands.append(('org.eclipse.cdt.managedbuilder.core.ScannerConfigBuilder', 'full,incremental,', ''))
+		self.project.buildcommands.append(('org.eclipse.cdt.managedbuilder.core.genmakebuilder', 'clean,full,incremental,', None))
+		self.project.buildcommands.append(('org.eclipse.cdt.managedbuilder.core.ScannerConfigBuilder', 'full,incremental,', None))
 
 		self.uuid = {
 			'debug': self.get_uuid(),
@@ -214,7 +253,7 @@ class CDTProject(Project):
 		elif self.is_stlib:
 			self.kind_name = 'Static Library'
 			self.kind = 'lib'
-		else:
+		elif self.is_program:
 			self.kind_name = 'Executable'
 			self.kind = 'exe'
 			self.launch = CDTLaunch(bld, gen, self.uuid['release'])
@@ -237,7 +276,10 @@ class CDTProject(Project):
 			self.launch_debug.cleanup()
 
 	def get_fname(self):
-		return '%s/.cproject' % (self.gen.path.relpath().replace('\\', '/'))
+		name = '.cproject'
+		if self.gen is not None:
+			name = '%s/%s' % (self.gen.path.relpath(), name)
+		return name.replace('\\', '/')
 
 	def get_content(self):
 		root = ElementTree.fromstring(ECLIPSE_CDT_PROJECT)
@@ -564,6 +606,88 @@ class CDTProject(Project):
 		return language in self.gen.features
 
 
+class WafCDT(CDTProject):
+	def __init__(self, bld):
+		super(WafCDT, self).__init__(bld, None, None)
+		self.comments = ['<?xml version="1.0" encoding="UTF-8" standalone="no"?>','<?fileVersion 4.0.0?>']
+		self.waf = str(os.path.abspath(sys.argv[0])).replace('\\', '/')
+
+	def get_content(self):
+		root = ElementTree.fromstring(ECLIPSE_CDT_PROJECT)
+		for module in root.findall('storageModule'):
+			if module.get('moduleId') == 'org.eclipse.cdt.core.settings':
+				self.update_cdt_core_settings(module)
+
+			if module.get('moduleId') == 'cdtBuildSystem':
+				self.update_cdt_buildsystem(module)
+
+			if module.get('moduleId') == 'scannerConfiguration':
+				self.update_scanner_configuration(module)
+
+			if module.get('moduleId') == 'refreshScope':
+				root.remove(module)
+
+		self.add_buildtargets(root)
+		return ElementTree.tostring(root)
+
+	def update_cdt_core_settings(self, module):
+		cconfig = ElementTree.fromstring(ECLIPSE_CDT_WAF_CONFIG)
+
+		for extension in cconfig.find('storageModule/extensions').iter('extension'):
+			if extension.get('point') == 'org.eclipse.cdt.core.BinaryParser':
+				eid = extension.get('id')
+				if self.bld.env.DEST_OS == 'win32':
+					extension.set('id', eid.replace('.ELF', '.PE'))
+
+		config = cconfig.find('storageModule/configuration')
+		config.set('artifactName', self.exp.appname)
+
+		platform = config.find('folderInfo/toolChain/targetPlatform')
+		parser = platform.get('binaryParser')
+		if self.bld.env.DEST_OS == 'win32':
+			platform.set('binaryParser', parser.replace('.ELF', '.PE'))
+
+		builder = config.find('folderInfo/toolChain/builder')
+		builder.set('autoBuildTarget', '"%s" build' % self.waf)
+		builder.set('cleanBuildTarget', '"%s" clean' % self.waf)
+		builder.set('incrementalBuildTarget', '"%s" build' % self.waf)
+		builder.set('command', str(sys.executable).replace('\\', '/'))
+
+		module.append(cconfig)
+
+	def update_cdt_buildsystem(self, module):
+		name = self.exp.appname
+		ElementTree.SubElement(module, 'project', {'id':'%s.null.1' % name, 'name': name})
+
+	def update_scanner_configuration(self, module):
+		scanner = ElementTree.SubElement(module, 'scannerConfigBuildInfo')
+		scanner.set('instanceId', 'org.eclipse.cdt.core.default.config.1')
+		ElementTree.SubElement(scanner, 'autodiscovery', {'enabled':'true', 'problemReportingEnabled':'true', 'selectedProfileId':''})
+
+	def add_buildtargets(self, root):
+		targets = {
+			'configure' : 'configure',
+			'dist'		: 'dist',
+			'install'	: 'install',
+			'build'		: 'build',
+			'clean'		: 'clean',
+			'uninstall'	: 'uninstall',
+			'distclean'	: 'distclean',
+		}
+
+		module = ElementTree.SubElement(root, 'storageModule', {'moduleId':'org.eclipse.cdt.make.core.buildtargets'})
+		buildtargets = ElementTree.SubElement(module, 'buildTargets')
+		for (name, value) in targets.items():
+			target = ElementTree.SubElement(buildtargets, 'target', {'name':name, 'path':''})
+			target.set('targetID', 'org.eclipse.cdt.build.MakeTargetBuilder')
+			ElementTree.SubElement(target, 'buildCommand').text = str(sys.executable).replace('\\', '/')
+			ElementTree.SubElement(target, 'buildArguments')
+			ElementTree.SubElement(target, 'buildTarget').text = '"%s" %s' % (self.waf, value)
+			ElementTree.SubElement(target, 'stopOnError').text = 'true'
+			ElementTree.SubElement(target, 'useDefaultCommand').text = 'false'
+			ElementTree.SubElement(target, 'runAllBuilders').text = 'false'
+
+
 class CDTLaunch(Project):
 	def __init__(self, bld, gen, uuid):
 		super(CDTLaunch, self).__init__(bld, gen)
@@ -620,8 +744,7 @@ ECLIPSE_PROJECT = \
 <projectDescription>
 	<name></name>
 	<comment></comment>
-	<projects>
-	</projects>
+	<projects/>
 	<buildSpec>
 	</buildSpec>
 	<natures>
@@ -688,7 +811,6 @@ ECLIPSE_CDT_DATAPROVIDER = '''
 	</extensions>
 </storageModule>
 '''
-#TODO: GLDErrorParser not needed for static libs?
 
 
 ECLIPSE_CDT_BUILDSYSTEM = '''
@@ -769,6 +891,40 @@ ECLIPSE_CDT_LAUNCH_RELEASE = \
 	<mapAttribute key="org.eclipse.debug.core.environmentVariables">
 	</mapAttribute>
 </launchConfiguration>
+'''
+
+
+ECLIPSE_CDT_WAF_CONFIG = '''
+<cconfiguration id="org.eclipse.cdt.core.default.config.1">
+	<storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="org.eclipse.cdt.core.default.config.1" moduleId="org.eclipse.cdt.core.settings" name="Default">
+		<externalSettings/>
+		<extensions>
+			<extension id="org.eclipse.cdt.core.VCErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+			<extension id="org.eclipse.cdt.core.GCCErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+			<extension id="org.eclipse.cdt.core.GASErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+			<extension id="org.eclipse.cdt.core.GLDErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+			<extension id="org.eclipse.cdt.core.GmakeErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+			<extension id="org.eclipse.cdt.core.CWDLocator" point="org.eclipse.cdt.core.ErrorParser"/>
+			<extension id="org.eclipse.cdt.core.ELF" point="org.eclipse.cdt.core.BinaryParser"/>
+		</extensions>
+	</storageModule>
+	<storageModule moduleId="cdtBuildSystem" version="4.0.0">
+		<configuration artifactName="" buildProperties="" description="" id="org.eclipse.cdt.core.default.config.1" name="Waf Build" parent="org.eclipse.cdt.build.core.prefbase.cfg">
+			<folderInfo id="org.eclipse.cdt.core.default.config.1." name="/" resourcePath="">
+				<toolChain id="org.eclipse.cdt.build.core.prefbase.toolchain.1" name="No ToolChain" resourceTypeBasedDiscovery="false" superClass="org.eclipse.cdt.build.core.prefbase.toolchain">
+					<targetPlatform binaryParser="org.eclipse.cdt.core.ELF" id="org.eclipse.cdt.build.core.prefbase.toolchain.1" name=""/>
+					<builder autoBuildTarget="; build" cleanBuildTarget="" command="" enableAutoBuild="false" id="org.eclipse.cdt.build.core.settings.default.builder.1" incrementalBuildTarget="" keepEnvironmentInBuildfile="false" managedBuildOn="false" name="Gnu Make Builder" superClass="org.eclipse.cdt.build.core.settings.default.builder">
+						<outputEntries>
+							<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="outputPath" name=""/>
+						</outputEntries>
+					</builder>
+					<tool id="org.eclipse.cdt.build.core.settings.holder.libs.353273715" name="holder for library settings" superClass="org.eclipse.cdt.build.core.settings.holder.libs"/>
+				</toolChain>
+			</folderInfo>
+		</configuration>
+	</storageModule>
+	<storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
+</cconfiguration>
 '''
 
 
