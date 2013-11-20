@@ -2,17 +2,6 @@
 # -*- encoding: utf-8 -*-
 
 def build(bld):
-
-	bld.stlib(
-		target = 'cleaking', 
-		source = ['src/leaking.c'],
-		includes = ['include'],
-		export_includes = ['include'],
-		cppcheck_suppress = 'cppcheck.suppress',
-		cppcheck_skip = False	# enables or disables source code checking on this task generator
-	)
-	
-	
 	bld.program(
 		target = 'ciambad', 
 		source = ['src/iambad.c'],
