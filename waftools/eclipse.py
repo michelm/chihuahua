@@ -3,14 +3,9 @@
 # Michel Mooij, michel.mooij7@gmail.com
 
 # TODO: add RPATH ??
-# TODO: change build location to waf build location ?? 
-#       -> hard to realize in Eclipse as soon as binary is not in project directory
-#       CDT no longer is able to find it !?
-#       options:
-#       - could use Eclipse 'linked folder'
-#       - build local but start in installation directory
 # TODO: find workaround for multiple taskgen's in the same wscript/directory,
 #       since they cannot coexist in the same .cproject file (at the same location).
+#	-> cannot be fixed; add scanner and warn when encountered.
 
 import sys
 import os
@@ -711,6 +706,10 @@ class CDTLaunch(Project):
 				attrib.set('value', self.gen.get_name())
 			if attrib.get('key') == 'org.eclipse.cdt.launch.PROJECT_BUILD_CONFIG_ID_ATTR':
 				attrib.set('value', self.build_config_id)
+			if attrib.get('key') == 'org.eclipse.cdt.launch.WORKING_DIRECTORY':
+				start_dir = str(self.bld.env.BINDIR).replace('\\', '/')
+				attrib.set('value', start_dir)
+
 		for attrib in root.iter('listAttribute'):
 			if attrib.get('key') == 'org.eclipse.debug.core.MAPPED_RESOURCE_PATHS':
 				attrib.find('listEntry').set('value', '/%s' % self.gen.get_name())
@@ -853,6 +852,7 @@ ECLIPSE_CDT_LAUNCH_DEBUG = \
 	<stringAttribute key="org.eclipse.cdt.launch.PROGRAM_NAME" value=""/>
 	<stringAttribute key="org.eclipse.cdt.launch.PROJECT_ATTR" value=""/>
 	<stringAttribute key="org.eclipse.cdt.launch.PROJECT_BUILD_CONFIG_ID_ATTR" value="cdt.managedbuild.config.gnu.exe.debug.1878333522"/>
+	<stringAttribute key="org.eclipse.cdt.launch.WORKING_DIRECTORY" value=""/>
 	<booleanAttribute key="org.eclipse.cdt.launch.use_terminal" value="true"/>
 	<listAttribute key="org.eclipse.debug.core.MAPPED_RESOURCE_PATHS">
 		<listEntry value=""/>
@@ -881,6 +881,7 @@ ECLIPSE_CDT_LAUNCH_RELEASE = \
 	<stringAttribute key="org.eclipse.cdt.launch.PROGRAM_NAME" value=""/>
 	<stringAttribute key="org.eclipse.cdt.launch.PROJECT_ATTR" value=""/>
 	<stringAttribute key="org.eclipse.cdt.launch.PROJECT_BUILD_CONFIG_ID_ATTR" value=""/>
+	<stringAttribute key="org.eclipse.cdt.launch.WORKING_DIRECTORY" value=""/>
 	<booleanAttribute key="org.eclipse.cdt.launch.use_terminal" value="true"/>
 	<listAttribute key="org.eclipse.debug.core.MAPPED_RESOURCE_PATHS">
 		<listEntry value=""/>
