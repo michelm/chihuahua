@@ -10,9 +10,10 @@ Export modules:
 - Add description for makefile export module
 - Add description for export module
 - Add description for cppcheck module
-- Add export module for CMAKE
-- Add export module for Eclipse
-- Add export module for Visual Studio
+- Add description for eclipse export module
+- Add export module for cmake
++ Add export module for eclipse
+- Add export module for visual studio
 
 Packaging modules:
 - Create fetch module for retrieving external dependencies
@@ -22,6 +23,7 @@ Packaging modules:
 Verification:
 - Test environmont with Python 3.x.x
 - Create test environment for Fedora, WinXP and Win7 for regression testing
+- Test Eclipse export in Windows
 
 
 
