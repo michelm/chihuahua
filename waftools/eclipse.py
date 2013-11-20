@@ -201,34 +201,13 @@ class PyDevProject(Project):
 class WafProject(PyDevProject):
 	def __init__(self, bld):
 		super(WafProject, self).__init__(bld, None, None)
-		path = os.path.dirname(waflib.__file__).replace('\\', '/')
-		self.ext_source_paths.append(path)
-		path = os.path.dirname(path).replace('\\', '/')
-		self.ext_source_paths.append(path)
-		self.project.natures.append('org.eclipse.cdt.core.cnature')
-		self.project.natures.append('org.eclipse.cdt.core.ccnature')
-		self.project.natures.append('org.eclipse.cdt.managedbuilder.core.managedBuildNature')
-		self.project.natures.append('org.eclipse.cdt.managedbuilder.core.ScannerConfigNature')
-		self.cproject = WafCDT(bld)
+		self.cproject = WafCDT(bld, self.project)
 
-		a = ElementTree.Element('arguments')
-		d = ElementTree.SubElement(a, 'dictionary')
-		ElementTree.SubElement(d, 'key').text = 'org.eclipse.cdt.make.core.enableAutoBuild'
-		ElementTree.SubElement(d, 'value').text = 'false'
+		path = os.path.dirname(waflib.__file__)
+		self.ext_source_paths.append(path.replace('\\', '/'))
 
-		d = ElementTree.SubElement(a, 'dictionary')
-		ElementTree.SubElement(d, 'key').text = 'org.eclipse.cdt.make.core.enableCleanBuild'
-		ElementTree.SubElement(d, 'value').text = 'false'
-
-		d = ElementTree.SubElement(a, 'dictionary')
-		ElementTree.SubElement(d, 'key').text = 'org.eclipse.cdt.make.core.enableFullBuild'
-		ElementTree.SubElement(d, 'value').text = 'false'
-
-		d = ElementTree.SubElement(a, 'dictionary')
-		ElementTree.SubElement(d, 'key').text = 'org.eclipse.cdt.make.core.contents'
-		ElementTree.SubElement(d, 'value').text = 'org.eclipse.cdt.make.core.activeConfigSettings'
-
-		self.project.buildcommands.append(('org.eclipse.cdt.managedbuilder.core.genmakebuilder', 'clean,full,incremental,', a))
+		path = os.path.dirname(path)
+		self.ext_source_paths.append(path.replace('\\', '/'))
 
 	def export(self):
 		super(WafProject, self).export()
@@ -240,20 +219,19 @@ class WafProject(PyDevProject):
 
 
 class CDTProject(Project):
-	def __init__(self, bld, gen, targets):
+	def __init__(self, bld, gen, targets, project=None):
 		super(CDTProject, self).__init__(bld, gen)
 		self.targets = targets
-		self.project = Project(bld, gen)
 		self.comments = ['<?xml version="1.0" encoding="UTF-8" standalone="no"?>','<?fileVersion 4.0.0?>']
 
-		if self.gen:
-			if 'cxx' in self.gen.features:
+		if gen is not None:
+			if 'cxx' in gen.features:
 				self.language = 'cpp'
 			else:
 				self.language = 'c'
-			self.is_program = set(('cprogram', 'cxxprogram')) & set(self.gen.features)
-			self.is_shlib = set(('cshlib', 'cxxshlib')) & set(self.gen.features)
-			self.is_stlib = set(('cstlib', 'cxxstlib')) & set(self.gen.features)
+			self.is_program = set(('cprogram', 'cxxprogram')) & set(gen.features)
+			self.is_shlib = set(('cshlib', 'cxxshlib')) & set(gen.features)
+			self.is_stlib = set(('cstlib', 'cxxstlib')) & set(gen.features)
 
 		else:
 			self.language = 'cpp'
@@ -261,14 +239,17 @@ class CDTProject(Project):
 			self.is_shlib = False
 			self.is_stlib = False
 	
-		self.project.natures.append('org.eclipse.cdt.core.cnature')
-		if self.language == 'cpp':
-			self.project.natures.append('org.eclipse.cdt.core.ccnature')
+		if project is None:
+			project = Project(bld, gen)
+		self.project = project
 
-		self.project.natures.append('org.eclipse.cdt.managedbuilder.core.managedBuildNature')
-		self.project.natures.append('org.eclipse.cdt.managedbuilder.core.ScannerConfigNature')
-		self.project.buildcommands.append(('org.eclipse.cdt.managedbuilder.core.genmakebuilder', 'clean,full,incremental,', None))
-		self.project.buildcommands.append(('org.eclipse.cdt.managedbuilder.core.ScannerConfigBuilder', 'full,incremental,', None))
+		project.natures.append('org.eclipse.cdt.core.cnature')
+		if self.language == 'cpp':
+			project.natures.append('org.eclipse.cdt.core.ccnature')
+		project.natures.append('org.eclipse.cdt.managedbuilder.core.managedBuildNature')
+		project.natures.append('org.eclipse.cdt.managedbuilder.core.ScannerConfigNature')
+		project.buildcommands.append(('org.eclipse.cdt.managedbuilder.core.genmakebuilder', 'clean,full,incremental,', None))
+		project.buildcommands.append(('org.eclipse.cdt.managedbuilder.core.ScannerConfigBuilder', 'full,incremental,', None))
 
 		self.uuid = {
 			'debug': self.get_uuid(),
@@ -643,8 +624,8 @@ class CDTProject(Project):
 
 
 class WafCDT(CDTProject):
-	def __init__(self, bld):
-		super(WafCDT, self).__init__(bld, None, None)
+	def __init__(self, bld, project):
+		super(WafCDT, self).__init__(bld, None, None, project)
 		self.comments = ['<?xml version="1.0" encoding="UTF-8" standalone="no"?>','<?fileVersion 4.0.0?>']
 		self.waf = str(os.path.abspath(sys.argv[0])).replace('\\', '/')
 
