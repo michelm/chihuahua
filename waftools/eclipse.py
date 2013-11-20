@@ -8,7 +8,7 @@ import os
 import xml.etree.ElementTree as ElementTree
 from xml.dom import minidom
 import waflib
-from waflib import Utils, Node, Logs
+from waflib import Logs
 
 
 def export(bld):
@@ -55,7 +55,7 @@ def scan_project_locations(bld):
 	locations = { '.': 'waf (top level)' }
 	anomalies = {}
 
-	for gen, targets in bld.components.items():
+	for gen, _ in bld.components.items():
 		name = gen.get_name()
 		location = str(gen.path.relpath()).replace('\\', '/')
 		
@@ -64,10 +64,10 @@ def scan_project_locations(bld):
 		else:
 			locations[location] = name
 
-	conflicts = len(anomalies.keys())
-	if conflicts != 0:
+	cnt = len(anomalies.keys())
+	if cnt != 0:
 		Logs.info('')
-		Logs.warn('WARNING ECLIPSE EXPORT: TASK LOCATION CONFLICTS(%s)' % conflicts)
+		Logs.warn('WARNING ECLIPSE EXPORT: TASK LOCATION CONFLICTS(%s)' % cnt)
 		Logs.info('Failed to create project files for:')
 		s = ' {n:<15} {l:<40}'
 		Logs.info(s.format(n='(name)', l='(location)'))
@@ -101,16 +101,9 @@ class Project(object):
 		node.write(content)
 
 	def cleanup(self):
-		cwd = self.get_cwd()
 		node = self.find_node()
 		if node:
 			node.delete()
-
-	def get_cwd(self):
-		cwd = os.path.dirname(self.get_fname())
-		if cwd == "":
-			cwd = "."
-		return self.bld.srcnode.find_node(cwd)
 
 	def find_node(self):
 		name = self.get_fname()
@@ -271,6 +264,7 @@ class CDTProject(Project):
 		self.project.natures.append('org.eclipse.cdt.core.cnature')
 		if self.language == 'cpp':
 			self.project.natures.append('org.eclipse.cdt.core.ccnature')
+
 		self.project.natures.append('org.eclipse.cdt.managedbuilder.core.managedBuildNature')
 		self.project.natures.append('org.eclipse.cdt.managedbuilder.core.ScannerConfigNature')
 		self.project.buildcommands.append(('org.eclipse.cdt.managedbuilder.core.genmakebuilder', 'clean,full,incremental,', None))
