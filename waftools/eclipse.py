@@ -2,35 +2,82 @@
 # -*- encoding: utf-8 -*-
 # Michel Mooij, michel.mooij7@gmail.com
 
-# TODO: add RPATH ??
-# TODO: find workaround for multiple taskgen's in the same wscript/directory,
-#       since they cannot coexist in the same .cproject file (at the same location).
-#	-> cannot be fixed; add scanner and warn when encountered.
 
 import sys
 import os
 import xml.etree.ElementTree as ElementTree
 from xml.dom import minidom
 import waflib
-from waflib import Utils, Node
+from waflib import Utils, Node, Logs
 
 
 def export(bld):
-	root = WafProject(bld)
+	'''Generates Eclipse CDT projects for each C/C++ task.
+
+	Also generates a top level Eclipse PyDev project
+	for the WAF build environment itself.
+	Warns when multiple task have been defined in the same,
+	or top level, directory.
+	'''
+	scan_project_locations(bld)
+
 	for gen, targets in bld.components.items():
 		if set(('c', 'cxx')) & set(getattr(gen, 'features', [])):
-			child = CDTProject(bld, gen, targets)
-			child.export()
-	root.export()
+			project = CDTProject(bld, gen, targets)
+			project.export()
+
+	project = WafProject(bld)
+	project.export()
 
 
 def cleanup(bld):
-	root = WafProject(bld)
+	'''Removes all generated CDT and PyDev project files
+	'''
 	for gen, targets in bld.components.items():
 		if set(('c', 'cxx')) & set(getattr(gen, 'features', [])):
-			child = CDTProject(bld, gen, targets)
-			child.cleanup()
-	root.cleanup()
+			project = CDTProject(bld, gen, targets)
+			project.cleanup()
+
+	project = WafProject(bld)
+	project.cleanup()
+
+
+def scan_project_locations(bld):
+	'''Warns when multiple TaskGen's has been defined in the same directory.
+
+	Since Eclipse works with static project filenames, only one project	per
+	directory can be created. If multiple task generators have been defined
+	in the same directory (i.e. same wscript) one will overwrite the other(s).
+	This problem can only e circumvented by changing the structure of the 
+	build environment; i.e. place each single task generator in a seperate 
+	directory.
+	'''
+	locations = { '.': 'waf (top level)' }
+	anomalies = {}
+
+	for gen, targets in bld.components.items():
+		name = gen.get_name()
+		location = str(gen.path.relpath()).replace('\\', '/')
+		
+		if locations.has_key(location):
+			anomalies[name] = location
+		else:
+			locations[location] = name
+
+	conflicts = len(anomalies.keys())
+	if conflicts != 0:
+		Logs.info('')
+		Logs.warn('WARNING ECLIPSE EXPORT: TASK LOCATION CONFLICTS(%s)' % conflicts)
+		Logs.info('Failed to create project files for:')
+		s = ' {n:<15} {l:<40}'
+		Logs.info(s.format(n='(name)', l='(location)'))
+		for (name, location) in anomalies.items():
+			Logs.info(s.format(n=name, l=location))
+		Logs.info('')
+		Logs.info('TIPS:')
+		Logs.info('- use one task per directory/wscript.')
+		Logs.info('- don\'t place tasks in the top level directory/wscript.')
+		Logs.info('')
 
 
 class Project(object):
