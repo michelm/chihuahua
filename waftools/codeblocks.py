@@ -3,65 +3,74 @@
 # Michel Mooij, michel.mooij7@gmail.com
 
 '''
-DESCRIPTION
-===========
-This module exports and converts WAF project data into code::blocks projects 
-file (*.cbp) and code::blocks workspaces (codeblock.workspace). 
+Introduction
+------------
+This module exports and converts *waf* project data, for C/C++ programs, 
+static- and shared libraries, into **Code::Blocks** project files (.cbp) and 
+workspaces (codeblock.workspace).
+**Code::Blocks** is an open source integrated development environment for C
+and C++. It is available for all major Deskop Operating Systems (MS Windows,
+all major Linux distributions and Macintosh OS-X).
+See http://www.codeblocks.org for a more detailed description on how to install
+and use it for your particular Desktop environment.
 
-When exporting, a single code::blocks workspace will be exported in the top
-level directory of the WAF build environment. This workspace file will contain
-references to all exported code::blocks project files and includes dependencies
-between those projects.
+Description
+-----------
+When exporting *waf* project data, a single **Code::Blocks** workspace will be
+exported in the top level directory of the *waf* build environment. This 
+workspace file will contain references to all exported **Code::Blocks** 
+projects and will include dependencies between those projects.
 
-For each single task generator, for instance 'bld.program(...)' which has been
-defined within a wscript file somewhere in the build environment, a single 
-code::blocks project file will be generated in the directory where the task 
-generator has been defined. The name of task generator will be used as name 
-for the exported code::blocks project file; if for instance the name of the 
-task generator is 'hello' then a code::blocks project file named 'hello.cbp' 
-will be exported in the same directory as where the task generator has been 
-defined.
+For each single task generator, for instance a *bld.program(...)* which has been
+defined within a *wscript* file somewhere in the build environment, a single 
+**Code::Blocks** project file will be generated in the same directory as where
+the task generator has been defined. 
+The name of task generator will be used as name for the exported 
+**Code::Blocks** project file. If for instance the name of the task generator
+is 'hello', then a **Code::Blocks** project file named *hello.cbp* will be 
+exported in the same directory as where the task generator has been defined.
 
-Example below present an overview of an environment in which code::blocks files
-have been exported:
+The following example presents an overview of an environment in which **Code::Blocks** 
+files already have been exported::
 
-		.
-		├── components
-		│   └── clib
-		│       ├── program
-		│       │   ├── cprogram.cbp
-		│       │   └── wscript
-		│       ├── shared
-		│       │   ├── cshlib.cbp
-		│       │   └── wscript
-		│       └── static
-		│           ├── cstlib.cbp
-		│           └── wscript
-		│
-		├── codeblocks.workspace
-		└── wscript
-
-Note the environment contains a single code::blocks workspace file in the top 
-directory of the environment. Furthermore it contains a code::blocks project 
-file for each task generator (in this example one per wscript file) in the same
-location as where the task generator has been defined. 
+        .
+        ├── components
+        │   └── clib
+        │       ├── program
+        │       │   ├── cprogram.cbp
+        │       │   └── wscript
+        │       ├── shared
+        │       │   ├── cshlib.cbp
+        │       │   └── wscript
+        │       └── static
+        │           ├── cstlib.cbp
+        │           └── wscript
+        │
+        ├── codeblocks.workspace
+        └── wscript
 
 
-USAGE
+
+Usage
 -----
-Code::blocks files can be exported using the 'export' command:
-	
-		'waf export --export-codeblocks'
+**Code::Blocks** project and workspace files can be exported using the *export* 
+command, as shown in the example below::
 
-When needed exported code::blocks may be removed using 'export-clean' command:
+        waf export --export-codeblocks
 
-		'waf export --export-cleanup'
+When needed, exported **Code::Blocks** project- and workspaces files can be 
+removed using the *export-clean* command, as shown in the example below::
 
+        waf export --export-cleanup
 
-REMARKS
--------
-This module is part of the 'export' module and cannot be used as a stand-alone
-WAF tool.
+Once exported simple open the *codeblocks.workspace* using **Code::Blocks**
+this will automatically open all exported projects as well.
+
+Module Interface
+----------------
+Basically the module exposes only two public methods; one for exporting project
+files and workspaces (*export*), and one for deleting exporting project files
+and workspaces (*cleanup*).
 '''
 
 import os
@@ -71,24 +80,42 @@ from waflib import Utils, Node
 
 
 def export(bld):
-	root = CBWorkspace(bld)
+	'''Exports all C and C++ task generators as **Code::Blocks** projects
+	and creates a **Code::Blocks** workspace containing references to 
+	those project.
+	
+	:param bld: a *waf* build instance from the top level *wscript*.
+	:type bld: waflib.BuildContext
+	:returns: None
+	'''
+	root = _CBWorkspace(bld)
 	for gen, targets in bld.components.items():
 		if set(('c', 'cxx')) & set(getattr(gen, 'features', [])):
-			child = CBProject(bld, gen, targets)
+			child = _CBProject(bld, gen, targets)
 			child.export()
 			root.add_child(child.get_data())
 	root.export()
 
 
 def cleanup(bld):
-	root = CBWorkspace(bld)
+	'''Removes all **Code::Blocks** projects and workspaces from the 
+	*waf* build environment.
+	
+	:param bld: a *waf* build instance from the top level *wscript*.
+	:type bld: waflib.BuildContext
+	:returns: None
+	'''
+	root = _CBWorkspace(bld)
 	for gen, targets in bld.components.items():
 		child = CBProject(bld, gen, targets)
 		child.cleanup()
 	root.cleanup()
 
 
-class CodeBlocks(object):
+class _CodeBlocks(object):
+	'''Abstract base class used for exporting *waf* project data to 
+	**Code::Blocks** projects and workspaces.
+	'''
 	def __init__(self, bld):
 		self.bld = bld
 		self.exp = bld.export
@@ -149,9 +176,13 @@ class CodeBlocks(object):
 		return '\n'.join(lines)
 
 
-class CBWorkspace(CodeBlocks):
+class _CBWorkspace(_CodeBlocks):
+	'''Class used for exporting *waf* project data to a **Code::Blocks** 
+	workspace located in the lop level directory of the *waf* build
+	environment.
+	'''
 	def __init__(self, bld):
-		super(CBWorkspace, self).__init__(bld)
+		super(_CBWorkspace, self).__init__(bld)
 		self.childs = {}
 
 	def get_name(self):
@@ -167,7 +198,7 @@ class CBWorkspace(CodeBlocks):
 		for (name, deps) in self.childs.values():
 			project = ElementTree.SubElement(workspace, 'Project', attrib={'filename':name})
 			for dep in deps:
-				(depends, _) = self.childs[dep]				
+				(depends, _) = self.childs[dep]
 				ElementTree.SubElement(project, 'Depends', attrib={'filename':depends})
 		return ElementTree.tostring(root)
 
@@ -176,9 +207,12 @@ class CBWorkspace(CodeBlocks):
 		self.childs[name] = (project, deps)
 
 
-class CBProject(CodeBlocks):
+class _CBProject(_CodeBlocks):
+	'''Class used for exporting *waf* project data to **Code::Blocks** 
+	projects.
+	'''
 	def __init__(self, bld, gen, targets):
-		super(CBProject, self).__init__(bld)
+		super(_CBProject, self).__init__(bld)
 		self.gen = gen
 		self.targets = targets
 
@@ -210,13 +244,13 @@ class CBProject(CodeBlocks):
 		for option in self._get_compiler_options():
 			ElementTree.SubElement(compiler, 'Add', attrib={'option':option})
 		for define in self._get_compiler_defines():
-			ElementTree.SubElement(compiler, 'Add', attrib={'option':'-D%s' % define})			
+			ElementTree.SubElement(compiler, 'Add', attrib={'option':'-D%s' % define})
 		for include in self._get_compiler_includes():
 			ElementTree.SubElement(compiler, 'Add', attrib={'directory':include})
 
 		linker = target.find('Linker')
 		for option in self._get_link_options():
-			ElementTree.SubElement(linker, 'Add', attrib={'option':option})		
+			ElementTree.SubElement(linker, 'Add', attrib={'option':option})
 		for library in self._get_link_libs():
 			ElementTree.SubElement(linker, 'Add', attrib={'library':library})
 		for directory in self._get_link_paths():
@@ -241,12 +275,12 @@ class CBProject(CodeBlocks):
 
 	def _get_buildpath(self):
 		bld = self.bld
-		gen = self.gen		
+		gen = self.gen
 		pth = '%s/%s' % (bld.path.get_bld().path_from(gen.path), gen.path.relpath())
 		return pth.replace('\\', '/')
 
 	def _get_output(self):
-		gen = self.gen						
+		gen = self.gen
 		return '%s/%s' % (self._get_buildpath(), gen.get_name())
 
 	def _get_object_output(self):
@@ -267,7 +301,7 @@ class CBProject(CodeBlocks):
 		lst = Utils.to_list(getattr(gen, name, []))
 		lst = [l.path_from(gen.path) if isinstance(l, Node.Nod3) else l for l in lst]
 		return [l.replace('\\', '/') for l in lst]
-	
+
 	def _get_compiler_options(self):
 		bld = self.bld
 		gen = self.gen
@@ -275,7 +309,7 @@ class CBProject(CodeBlocks):
 			flags = getattr(gen, 'cxxflags', []) + bld.env.CXXFLAGS
 		else:
 			flags = getattr(gen, 'cflags', []) + bld.env.CFLAGS
-			
+
 		if 'cshlib' in gen.features:
 			flags.extend(bld.env.CFLAGS_cshlib)
 		elif 'cxxshlib' in gen.features:
@@ -296,9 +330,9 @@ class CBProject(CodeBlocks):
 
 	def _get_link_options(self):
 		bld = self.bld
-		gen = self.gen	
+		gen = self.gen
 		flags = getattr(gen, 'linkflags', []) + bld.env.LINKFLAGS
-		
+
 		if 'cshlib' in gen.features:
 			flags.extend(bld.env.LINKFLAGS_cshlib)
 		elif 'cxxshlib' in gen.features:
@@ -361,10 +395,10 @@ CODEBLOCKS_PROJECT = \
                 <Option object_output="XXX" />
                 <Option type="XXX" />
                 <Option compiler="gcc" />
-				<Compiler>
-				</Compiler>
-				<Linker>
-				</Linker>
+                <Compiler>
+                </Compiler>
+                <Linker>
+                </Linker>
             </Target>
         </Build>
         <Extensions>
