@@ -5,6 +5,7 @@
 
 import sys
 import os
+import re
 import xml.etree.ElementTree as ElementTree
 from xml.dom import minidom
 import waflib
@@ -19,6 +20,7 @@ def export(bld):
 	Warns when multiple task have been defined in the same,
 	or top level, directory.
 	'''
+	detect_workspace_location(bld)
 	scan_project_locations(bld)
 
 	for gen, targets in bld.components.items():
@@ -31,7 +33,7 @@ def export(bld):
 
 
 def cleanup(bld):
-	'''Removes all generated CDT and PyDev project files
+	'''Removes all generated Eclipse project and launcher files
 	'''
 	for gen, targets in bld.components.items():
 		if set(('c', 'cxx')) & set(getattr(gen, 'features', [])):
@@ -40,6 +42,19 @@ def cleanup(bld):
 
 	project = WafProject(bld)
 	project.cleanup()
+
+
+def detect_workspace_location(bld):
+	'''Detect and save the top level directory containing Eclipse workspace
+	settings.
+	'''
+	path = bld.path.abspath()
+	while not os.path.exists(os.sep.join((path, '.metadata'))):
+		if os.path.dirname(path) == path:
+			Logs.warn('WARNING ECLIPSE EXPORT: FAILED TO DETECT WORKSPACE_LOC.')
+			return
+		path = os.path.dirname(path)
+	bld.workspace_loc = path.replace('\\', '/')
 
 
 def scan_project_locations(bld):
@@ -78,6 +93,15 @@ def scan_project_locations(bld):
 		Logs.info('- use one task per directory/wscript.')
 		Logs.info('- don\'t place tasks in the top level directory/wscript.')
 		Logs.info('')
+
+
+def is_subdir(child, parent, follow_symlinks=True):
+	'''Returns True when child is a sub directory of parent.
+	'''
+	if follow_symlinks:
+		parent = os.path.realpath(parent)
+		child = os.path.realpath(child)
+	return child.startswith(parent)
 
 
 class Project(object):
@@ -589,7 +613,7 @@ class CDTProject(Project):
 		if not self.is_language(language):
 			return
 
-		libs = [] # TODO: add env.LIBDIR ??
+		libs = []
 		for use in getattr(self.gen, 'use', []):
 			tgen = self.bld.get_tgen_by_name(use)
 			if set(('cstlib', 'cshlib','cxxstlib', 'cxxshlib')) & set(tgen.features):
@@ -729,8 +753,11 @@ class CDTLaunch(Project):
 			if attrib.get('key') == 'org.eclipse.cdt.launch.PROJECT_BUILD_CONFIG_ID_ATTR':
 				attrib.set('value', self.build_config_id)
 			if attrib.get('key') == 'org.eclipse.cdt.launch.WORKING_DIRECTORY':
-				start_dir = str(self.bld.env.BINDIR).replace('\\', '/')
-				attrib.set('value', start_dir)
+				sdir = str(self.bld.env.BINDIR).replace('\\', '/')
+				rdir = self.bld.workspace_loc
+				if rdir and is_subdir(sdir, rdir):
+					sdir = re.sub('\A%s' % rdir, '${workspace_loc}', sdir)
+				attrib.set('value', sdir)
 
 		for attrib in root.iter('listAttribute'):
 			if attrib.get('key') == 'org.eclipse.debug.core.MAPPED_RESOURCE_PATHS':
