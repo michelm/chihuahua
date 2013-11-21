@@ -2,6 +2,8 @@
 # -*- encoding: utf-8 -*-
 # Michel Mooij, michel.mooij7@gmail.com
 
+# TODO: Set working_dir
+
 '''
 Introduction
 ------------
@@ -228,8 +230,16 @@ class _CBProject(_CodeBlocks):
 		for option in project.iter('Option'):
 			if option.get('title'):
 				option.set('title', gen.get_name())
-				
+		
+		defines = self._get_compiler_defines()
+		if 'NDEBUG' in defines:
+			title = 'Release'
+		else:
+			title = 'Debug'
+		
 		target = project.find('Build').find('Target')
+		target.set('title', title)
+
 		for option in target.iter('Option'):
 			if option.get('output'):
 				option.set('output', self._get_output())
@@ -243,7 +253,7 @@ class _CBProject(_CodeBlocks):
 		compiler = target.find('Compiler')
 		for option in self._get_compiler_options():
 			ElementTree.SubElement(compiler, 'Add', attrib={'option':option})
-		for define in self._get_compiler_defines():
+		for define in defines:
 			ElementTree.SubElement(compiler, 'Add', attrib={'option':'-D%s' % define})
 		for include in self._get_compiler_includes():
 			ElementTree.SubElement(compiler, 'Add', attrib={'directory':include})
@@ -323,7 +333,7 @@ class _CBProject(_CodeBlocks):
 
 	def _get_compiler_defines(self):
 		gen = self.gen
-		defines = self._get_genlist(gen, 'defines')
+		defines = self._get_genlist(gen, 'defines') + gen.bld.env.DEFINES
 		# TODO: code::blocks version 10.05 needs double backslashes as 
 		# escape in string defines
 		return [d.replace('"', '\\\\"') for d in defines]
@@ -390,7 +400,7 @@ CODEBLOCKS_PROJECT = \
         <Option pch_mode="2" />
         <Option compiler="gcc" />
         <Build>
-            <Target title="Default">
+            <Target title="XXX">
                 <Option output="XXX" prefix_auto="1" extension_auto="1" />
                 <Option object_output="XXX" />
                 <Option type="XXX" />
