@@ -2,8 +2,6 @@
 # -*- encoding: utf-8 -*-
 # Michel Mooij, michel.mooij7@gmail.com
 
-# TODO: Set working_dir
-
 '''
 Introduction
 ------------
@@ -76,6 +74,7 @@ and workspaces (*cleanup*).
 '''
 
 import os
+import copy
 import xml.etree.ElementTree as ElementTree
 from xml.dom import minidom
 from waflib import Utils, Node
@@ -90,13 +89,18 @@ def export(bld):
 	:type bld: waflib.BuildContext
 	:returns: None
 	'''
-	root = _CBWorkspace(bld)
+	workspace = CBWorkspace(bld)
 	for gen, targets in bld.components.items():
 		if set(('c', 'cxx')) & set(getattr(gen, 'features', [])):
-			child = _CBProject(bld, gen, targets)
-			child.export()
-			root.add_child(child.get_data())
-	root.export()
+			project = CBProject(bld, gen, targets)
+			project.export()
+			workspace.add_project(project.get_metadata())
+
+	project = WafCBProject(bld)
+	project.export()
+	workspace.add_project(project.get_metadata())
+
+	workspace.export()
 
 
 def cleanup(bld):
@@ -107,68 +111,74 @@ def cleanup(bld):
 	:type bld: waflib.BuildContext
 	:returns: None
 	'''
-	root = _CBWorkspace(bld)
+	root = CBWorkspace(bld)
 	for gen, targets in bld.components.items():
 		child = CBProject(bld, gen, targets)
 		child.cleanup()
 	root.cleanup()
 
 
-class _CodeBlocks(object):
+class CodeBlocks(object):
 	'''Abstract base class used for exporting *waf* project data to 
 	**Code::Blocks** projects and workspaces.
 	'''
+
+	PROGRAM	= '1'
+	STLIB	= '2'
+	SHLIB	= '3'
+	OBJECT	= '4'
+
 	def __init__(self, bld):
 		self.bld = bld
 		self.exp = bld.export
 
 	def export(self):
 		'''exports a code::blocks workspace or project.'''
-		content = self.get_content()
+		content = self._get_content()
 		if not content:
 			return
 		content = self._xml_clean(content)
 
-		node = self.make_node()
+		node = self._make_node()
 		if not node:
 			return
 		node.write(content)
 
 	def cleanup(self):
 		'''deletes code::blocks workspace or project file including .layout and .depend files'''
-		cwd = self.get_cwd()
+		cwd = self._get_cwd()
 		for node in cwd.ant_glob('*.layout'):
 			node.delete()
 		for node in cwd.ant_glob('*.depend'):
 			node.delete()
-		node = self.find_node()
+		node = self._find_node()
 		if node:
 			node.delete()
 
-	def get_cwd(self):
-		cwd = os.path.dirname(self.get_name())
+	def _get_cwd(self):
+		cwd = os.path.dirname(self._get_fname())
 		if cwd == "":
 			cwd = "."
 		return self.bld.srcnode.find_node(cwd)
 
-	def find_node(self):
-		name = self.get_name()
+	def _find_node(self):
+		name = self._get_fname()
 		if not name:
 			return None    
 		return self.bld.srcnode.find_node(name)
 
-	def make_node(self):
-		name = self.get_name()
+	def _make_node(self):
+		name = self._get_fname()
 		if not name:
 			return None    
 		return self.bld.srcnode.make_node(name)
 
-	def get_name(self): 
-		'''abstract operation to be defined in child'''
+	def _get_fname(self): 
+		'''<abstract> Returns file name.'''
 		return None
 
-	def get_content(self):
-		'''abstract operation to be defined in child'''
+	def _get_content(self):
+		'''<abstract> Returns file content.'''
 		return None
 
 	def _xml_clean(self, content):
@@ -178,52 +188,58 @@ class _CodeBlocks(object):
 		return '\n'.join(lines)
 
 
-class _CBWorkspace(_CodeBlocks):
+class CBWorkspace(CodeBlocks):
 	'''Class used for exporting *waf* project data to a **Code::Blocks** 
 	workspace located in the lop level directory of the *waf* build
 	environment.
 	'''
 	def __init__(self, bld):
-		super(_CBWorkspace, self).__init__(bld)
-		self.childs = {}
+		super(CBWorkspace, self).__init__(bld)
+		self.projects = {}
 
-	def get_name(self):
+	def _get_fname(self):
+		'''Returns the workspace's file name.'''
 		return 'codeblocks.workspace'
 
-	def get_content(self):
+	def _get_content(self):
 		'''returns the content of a code::blocks workspace file containing references to all 
 		projects and project dependencies.
 		'''
 		root = ElementTree.fromstring(CODEBLOCKS_WORKSPACE)
 		workspace = root.find('Workspace')
 		workspace.set('title', self.exp.appname)
-		for (name, deps) in self.childs.values():
-			project = ElementTree.SubElement(workspace, 'Project', attrib={'filename':name})
+
+		for name in sorted(self.projects.iterkeys()):
+			(fname, deps) = self.projects[name]
+			project = ElementTree.SubElement(workspace, 'Project', attrib={'filename':fname})
 			for dep in deps:
-				(depends, _) = self.childs[dep]
-				ElementTree.SubElement(project, 'Depends', attrib={'filename':depends})
+				(fname, _) = self.projects[dep]
+				ElementTree.SubElement(project, 'Depends', attrib={'filename':fname})
 		return ElementTree.tostring(root)
 
-	def add_child(self, child):
-		(name, project, deps) = child
-		self.childs[name] = (project, deps)
+	def add_project(self, project):
+		'''Adds a project to the workspace.'''
+		(name, fname, deps) = project
+		self.projects[name] = (fname, deps)
 
 
-class _CBProject(_CodeBlocks):
+class CBProject(CodeBlocks):
 	'''Class used for exporting *waf* project data to **Code::Blocks** 
 	projects.
 	'''
+
 	def __init__(self, bld, gen, targets):
-		super(_CBProject, self).__init__(bld)
+		super(CBProject, self).__init__(bld)
 		self.gen = gen
 		self.targets = targets
 
-	def get_name(self):
+	def _get_fname(self):
+		'''Returns the project's file name.'''
 		gen = self.gen
 		return '%s/%s.cbp' % (gen.path.relpath().replace('\\', '/'), gen.get_name())
 
-	def get_content(self):
-		'''returns the content of a code::blocks project file.'''
+	def _get_content(self):
+		'''Returns the content of a project file.'''
 		gen = self.gen
 		root = ElementTree.fromstring(CODEBLOCKS_PROJECT)
 		project = root.find('Project')
@@ -237,19 +253,25 @@ class _CBProject(_CodeBlocks):
 		else:
 			title = 'Debug'
 		
-		target = project.find('Build').find('Target')
+		target = project.find('Build/Target')
 		target.set('title', title)
+		target_type = self._get_target_type()
 
 		for option in target.iter('Option'):
 			if option.get('output'):
 				option.set('output', self._get_output())
-				
+
 			elif option.get('object_output'):
 				option.set('object_output', self._get_object_output())
 				
 			elif option.get('type'):
-				option.set('type', self._get_target_type())
-		
+				option.set('type', target_type)
+
+		if target_type == CodeBlocks.PROGRAM:
+			option = ElementTree.Element('Option')
+			option.set('working_dir', self._get_working_directory())
+			target.insert(1, option)
+
 		compiler = target.find('Compiler')
 		for option in self._get_compiler_options():
 			ElementTree.SubElement(compiler, 'Add', attrib={'option':option})
@@ -276,12 +298,15 @@ class _CBProject(_CodeBlocks):
 		
 		return ElementTree.tostring(root)
 
-	def get_data(self):
+	def get_metadata(self):
+		'''Returns a tuple containing project information (name, file name and 
+		dependencies).
+		'''
 		gen = self.gen
 		name = gen.get_name()
-		project = self.get_name()
+		fname = self._get_fname()
 		deps = Utils.to_list(getattr(gen, 'use', []))
-		return (name, project, deps)
+		return (name, fname, deps)
 
 	def _get_buildpath(self):
 		bld = self.bld
@@ -295,6 +320,16 @@ class _CBProject(_CodeBlocks):
 
 	def _get_object_output(self):
 		return self._get_buildpath()
+
+	def _get_working_directory(self):
+		gen = self.gen
+		bld = self.bld
+
+		sdir = gen.bld.env.BINDIR
+		if sdir.startswith(bld.path.abspath()):
+			sdir = os.path.relpath(sdir, gen.path.abspath())
+
+		return sdir.replace('\\', '/')
 
 	def _get_target_type(self):
 		gen = self.gen
@@ -334,8 +369,6 @@ class _CBProject(_CodeBlocks):
 	def _get_compiler_defines(self):
 		gen = self.gen
 		defines = self._get_genlist(gen, 'defines') + gen.bld.env.DEFINES
-		# TODO: code::blocks version 10.05 needs double backslashes as 
-		# escape in string defines
 		return [d.replace('"', '\\\\"') for d in defines]
 
 	def _get_link_options(self):
@@ -383,6 +416,59 @@ class _CBProject(_CodeBlocks):
 		return includes
 
 
+class WafCBProject(CodeBlocks):
+	'''Class used for creating a dummy **Code::Blocks** project containing
+	only waf commands as pre-build steps.
+	'''
+
+	def __init__(self, bld):
+		super(WafCBProject, self).__init__(bld)
+		self.title = 'waf'
+
+	def _get_fname(self):
+		'''Returns the file name.'''
+		return 'waf.cbp'
+
+	def _get_content(self):
+		'''Returns the content of a code::blocks project file.
+		'''
+		root = ElementTree.fromstring(CODEBLOCKS_PROJECT)
+		project = root.find('Project')
+		for option in project.iter('Option'):
+			if option.get('title'):
+				option.set('title', self.title)
+
+		target = project.find('Build/Target')
+		target.set('title', 'build')
+		for option in target.iter('Option'):
+			if option.get('output'):
+				option.set('output', '')
+
+			elif option.get('object_output'):
+				option.set('object_output', '')
+
+		for cmd in ['clean', 'install', 'uninstall']:
+			tgt = copy.deepcopy(target)
+			tgt.set('title', cmd)
+			project.find('Build').append(tgt)
+
+		for target in project.iter('Target'):
+			cmd = 'waf %s' % target.get('title')
+			build = ElementTree.SubElement(target, 'ExtraCommands')
+			ElementTree.SubElement(build, 'Add', {'before': cmd})
+
+		return ElementTree.tostring(root)
+
+	def get_metadata(self):
+		'''Returns a tuple containing project information (name, file name and 
+		dependencies).
+		'''
+		name = self.title
+		fname = self._get_fname()
+		deps = []
+		return (name, fname, deps)
+
+
 CODEBLOCKS_WORKSPACE = \
 '''<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
 <CodeBlocks_workspace_file>
@@ -403,12 +489,10 @@ CODEBLOCKS_PROJECT = \
             <Target title="XXX">
                 <Option output="XXX" prefix_auto="1" extension_auto="1" />
                 <Option object_output="XXX" />
-                <Option type="XXX" />
+                <Option type="2" />
                 <Option compiler="gcc" />
-                <Compiler>
-                </Compiler>
-                <Linker>
-                </Linker>
+                <Compiler/>
+                <Linker/>
             </Target>
         </Build>
         <Extensions>
