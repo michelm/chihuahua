@@ -111,11 +111,15 @@ def cleanup(bld):
 	:type bld: waflib.BuildContext
 	:returns: None
 	'''
-	root = CBWorkspace(bld)
 	for gen, targets in bld.components.items():
-		child = CBProject(bld, gen, targets)
-		child.cleanup()
-	root.cleanup()
+		project = CBProject(bld, gen, targets)
+		project.cleanup()
+
+	project = WafCBProject(bld)
+	project.cleanup()
+
+	workspace = CBWorkspace(bld)
+	workspace.cleanup()
 
 
 class CodeBlocks(object):
