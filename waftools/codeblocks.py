@@ -21,28 +21,14 @@ exported in the top level directory of the *waf* build environment. This
 workspace file will contain references to all exported **Code::Blocks** 
 projects and will include dependencies between those projects.
 
-For each single task generator, for instance a *bld.program(...)* which has been
-defined within a *wscript* file somewhere in the build environment, a single 
-**Code::Blocks** project file will be generated in the same directory as where
-the task generator has been defined. 
-The name of task generator will be used as name for the exported 
+For each single task generator (*waflib.TaskGenerator*), for instance a 
+*bld.program(...)* which has been defined within a *wscript* file somewhere in
+the build environment, a single **Code::Blocks** project file will be generated
+in the same directory as where the task generator has been defined.
+The name of this task generator will be used as name for the exported 
 **Code::Blocks** project file. If for instance the name of the task generator
 is *hello*, then a **Code::Blocks** project file named *hello.cbp* will be 
 exported.
-
-Furthermore a special **Code::Blocks** project named *waf.cbp* will be
-generated in the top level directory of the build environment. This project 
-will contain the following build targets:
-
-* build
-* clean
-* install
-* uninstall
-
-Each of these targets contains a single prebuild step for executing a *waf*
-command on the entire build environment; building the *clean* target, for 
-instance, will result in all build results being removed from the build 
-directory in the build environment.
 
 The following example presents an overview of an environment in which
 **Code::Blocks** files already have been exported::
@@ -64,10 +50,24 @@ The following example presents an overview of an environment in which
         ├── codeblocks.workspace
         └── wscript
 
+Furthermore a special **Code::Blocks** project named *waf.cbp* will be
+generated in the top level directory of the build environment. This project 
+will contain the following build targets:
+
+* build
+* clean
+* install
+* uninstall
+
+Each of these targets contains a single prebuild step for executing a *waf*
+command on the entire build environment; building the *clean* target, for 
+instance, will result in all build results being removed from the build 
+directory in the build environment.
+
 Projects will be exported such that they will use the same settings and 
-structure as has been defined for that same build task within the *waf* build 
-environment as much as possible. Following present a summary of the items that
-will be exported to projects:
+structure as has been defined for that build task within the *waf* build 
+environment. Following present a summary of the items that will be exported to
+**Code::Blocks** projects:
 
 * Source files
 * Inlcude paths
@@ -79,13 +79,20 @@ will be exported to projects:
 * Build location (same as in *waf* environment)
 * Debug and start location (install location as defined in *waf* environment)
 
-All this information will be combined in a single build target within the 
-project of which the name will depend on current environment configuration; 
-if the environment has been configured to build all C/C++ task with debugging 
-information the build target will be named *Debug* otherwise it will be named
-*Release*. Thus the exported project will always use the same settings of the
-current environment settings.
-
+All this information will be combined in a single *build* *target* within the 
+project. The name of this build target depends on the current environment 
+configuration and the compiler being used to build the target; if the build 
+environment, for instance, has been configured to build all C/C++ tasks
+with debugging information the build target will be named *Debug* otherwise 
+it will be named *Release*. If the destination OS and/or destination CPU is 
+not the same as current host on which the target will be build, then these 
+will also be added to the name of the build target (e.g. *Debug-WIN32* when 
+cross compiling for Windows on a Linux host).
+Please note that only **one** build target will be exported for each 
+environment (see waf *variants*) that has been defined in the actual waf 
+build environment. So when using a single waf build environment, i.e. one 
+without using variants, **Code::Blocks** projects will be exported for either
+*Debug* **or** *Release*, depending on the current configuration.
 
 Usage
 -----
