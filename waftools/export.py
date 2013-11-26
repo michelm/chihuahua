@@ -96,7 +96,10 @@ class Export(object):
 		self.out = os.path.abspath(getattr(Context.g_module, Context.OUT))
 		self.bindir = bld.env.BINDIR
 		self.libdir = bld.env.LIBDIR
-		self.ar = os.path.basename(bld.env.AR)
+		ar = bld.env.AR
+		if isinstance(ar, list):
+			ar = ar[0]
+		self.ar = os.path.basename(ar)
 		self.cc = os.path.basename(bld.env.CC[0])
 		self.cxx = os.path.basename(bld.env.CXX[0])
 		self.rpath = ' '.join(bld.env.RPATH)

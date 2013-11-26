@@ -118,9 +118,10 @@ and workspaces (*cleanup*).
 
 import os
 import copy
+import platform
 import xml.etree.ElementTree as ElementTree
 from xml.dom import minidom
-from waflib import Utils, Node
+from waflib import Utils, Node, Logs
 
 
 def export(bld):
@@ -138,11 +139,22 @@ def export(bld):
 			project = _CBProject(bld, gen, targets)
 			project.export()
 			workspace.add_project(project.get_metadata())
+			cc_name = project.get_toolchain()
+
+	if cc_name != 'gcc':
+		Logs.info("")
+		Logs.warn("EXPORT NOTIFICATION")
+		Logs.warn("Remember to setup your toolchain in Code::Blocks for these projects!")
+		Logs.info("")
+		Logs.info("Toolchain name: '%s'" % cc_name)
+		Logs.info("CC            : '%s'" % bld.export.cc)
+		Logs.info("CXX           : '%s'" % bld.export.cxx)
+		Logs.info("AR            : '%s'" % bld.export.ar)
+		Logs.info("")
 
 	project = _WafCBProject(bld)
 	project.export()
 	workspace.add_project(project.get_metadata())
-
 	workspace.export()
 
 
@@ -288,17 +300,16 @@ class _CBProject(_CodeBlocks):
 	def _get_content(self):
 		'''Returns the content of a project file.'''
 		gen = self.gen
+		cc = self.get_toolchain()
 		root = ElementTree.fromstring(CODEBLOCKS_PROJECT)
 		project = root.find('Project')
 		for option in project.iter('Option'):
 			if option.get('title'):
 				option.set('title', gen.get_name())
+			if option.get('compiler'):
+				option.set('compiler', cc)
 		
-		defines = self._get_compiler_defines()
-		if 'NDEBUG' in defines:
-			title = 'Release'
-		else:
-			title = 'Debug'
+		title = self._get_target_title()
 		
 		target = project.find('Build/Target')
 		target.set('title', title)
@@ -307,12 +318,12 @@ class _CBProject(_CodeBlocks):
 		for option in target.iter('Option'):
 			if option.get('output'):
 				option.set('output', self._get_output())
-
 			elif option.get('object_output'):
 				option.set('object_output', self._get_object_output())
-				
 			elif option.get('type'):
 				option.set('type', target_type)
+			elif option.get('compiler'):
+				option.set('compiler', cc)
 
 		if target_type == _CodeBlocks.PROGRAM:
 			option = ElementTree.Element('Option')
@@ -322,7 +333,7 @@ class _CBProject(_CodeBlocks):
 		compiler = target.find('Compiler')
 		for option in self._get_compiler_options():
 			ElementTree.SubElement(compiler, 'Add', attrib={'option':option})
-		for define in defines:
+		for define in self._get_compiler_defines():
 			ElementTree.SubElement(compiler, 'Add', attrib={'option':'-D%s' % define})
 		for include in self._get_compiler_includes():
 			ElementTree.SubElement(compiler, 'Add', attrib={'directory':include})
@@ -354,6 +365,27 @@ class _CBProject(_CodeBlocks):
 		fname = self._get_fname()
 		deps = Utils.to_list(getattr(gen, 'use', []))
 		return (name, fname, deps)
+
+	def get_toolchain(self):
+		'''Returns the name of the compiler toolchain.
+		'''
+		if self.gen.env.DEST_OS == 'win32':
+			toolchain = 'mingw32'
+		elif self.gen.env.DEST_CPU != platform.processor():
+			toolchain = 'gcc_%s' % self.gen.env.DEST_CPU
+		else:
+			toolchain = 'gcc'
+		return toolchain
+
+	def _get_target_title(self):
+		features = self.gen.features
+		env = self.gen.env
+		title = '%s-%s' % (env.DEST_OS, env.DEST_CPU)
+		if 'cxx' in features and '-g' in env.CXXFLAGS:
+			title += '-debug'
+		elif '-g' in env.CFLAGS:
+			title += '-debug'
+		return title
 
 	def _get_buildpath(self):
 		bld = self.bld
