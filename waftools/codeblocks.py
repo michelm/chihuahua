@@ -117,6 +117,7 @@ and workspaces (*cleanup*).
 '''
 
 import os
+import sys
 import copy
 import platform
 import xml.etree.ElementTree as ElementTree
@@ -297,22 +298,43 @@ class _CBProject(_CodeBlocks):
 		gen = self.gen
 		return '%s/%s.cbp' % (gen.path.relpath().replace('\\', '/'), gen.get_name())
 
+	def _get_root(self):
+		'''Returns a document root, either from an existing file, or from template.
+		'''
+		fname = self._get_fname()
+		if os.path.exists(fname):
+			tree = ElementTree.parse(fname)
+			root = tree.getroot()
+		else:
+			root = ElementTree.fromstring(CODEBLOCKS_PROJECT)
+		return root
+
+	def _get_target(self, project, toolchain):
+		'''Returns a targets for the requested toolchain name.
+
+		If the target doesn't exist in the project it will be added.
+		'''
+		build = project.find('Build')
+		for target in build.iter('Target'):
+			for option in target.iter('Option'):
+				if option.get('compiler') == toolchain:
+					return target
+
+		target = copy.deepcopy(build.find('Target'))
+		build.append(target)
+		return target
+
 	def _get_content(self):
 		'''Returns the content of a project file.'''
-		gen = self.gen
-		cc = self.get_toolchain()
-		root = ElementTree.fromstring(CODEBLOCKS_PROJECT)
+		root = self._get_root()
 		project = root.find('Project')
 		for option in project.iter('Option'):
 			if option.get('title'):
-				option.set('title', gen.get_name())
-			if option.get('compiler'):
-				option.set('compiler', cc)
+				option.set('title', self.gen.get_name())
 		
-		title = self._get_target_title()
-		
-		target = project.find('Build/Target')
-		target.set('title', title)
+		toolchain = self.get_toolchain()
+		target = self._get_target(project, toolchain)
+		target.set('title', self._get_target_title())
 		target_type = self._get_target_type()
 
 		for option in target.iter('Option'):
@@ -323,14 +345,13 @@ class _CBProject(_CodeBlocks):
 			elif option.get('type'):
 				option.set('type', target_type)
 			elif option.get('compiler'):
-				option.set('compiler', cc)
-
-		if target_type == _CodeBlocks.PROGRAM:
-			option = ElementTree.Element('Option')
-			option.set('working_dir', self._get_working_directory())
-			target.insert(1, option)
+				option.set('compiler', toolchain)
+			elif option.get('working_dir'):
+				if target_type == _CodeBlocks.PROGRAM:
+					option.set('working_dir', self._get_working_directory())
 
 		compiler = target.find('Compiler')
+		compiler.clear()
 		for option in self._get_compiler_options():
 			ElementTree.SubElement(compiler, 'Add', attrib={'option':option})
 		for define in self._get_compiler_defines():
@@ -339,6 +360,7 @@ class _CBProject(_CodeBlocks):
 			ElementTree.SubElement(compiler, 'Add', attrib={'directory':include})
 
 		linker = target.find('Linker')
+		linker.clear()
 		for option in self._get_link_options():
 			ElementTree.SubElement(linker, 'Add', attrib={'option':option})
 		for library in self._get_link_libs():
@@ -347,10 +369,18 @@ class _CBProject(_CodeBlocks):
 			ElementTree.SubElement(linker, 'Add', attrib={'directory':directory})
 		
 		sources = self._get_genlist(self.gen, 'source')
+		for unit in project.iter('Unit'):
+			source = unit.get('filename')
+			if source in sources:
+				sources.remove(source)
 		for source in sources:
 			ElementTree.SubElement(project, 'Unit', attrib={'filename':source})
 		
 		includes = self._get_includes_files()
+		for unit in project.iter('Unit'):
+			include = unit.get('filename')
+			if include in includes:
+				includes.remove(include)
 		for include in includes:
 			ElementTree.SubElement(project, 'Unit', attrib={'filename':include})
 		
@@ -382,14 +412,23 @@ class _CBProject(_CodeBlocks):
 		return toolchain
 
 	def _get_target_title(self):
-		features = self.gen.features
+		bld = self.gen.bld
 		env = self.gen.env
-		title = '%s-%s' % (env.DEST_OS, env.DEST_CPU)
-		if 'cxx' in features and '-g' in env.CXXFLAGS:
-			title += '-debug'
-		elif '-g' in env.CFLAGS:
-			title += '-debug'
-		return title
+
+		if bld.variant:
+			title = '%s ' % (bld.variant)
+		elif env.DEST_OS in sys.platform \
+				and env.DEST_CPU == platform.processor():
+			title = ''
+		else:
+			title = '%s-%s' % (env.DEST_OS, env.DEST_CPU)
+
+		if '-g' in env.CFLAGS or '-g' in env.CXXFLAGS:
+			title += 'debug'
+		else:
+			title += 'release'
+
+		return title.title()
 
 	def _get_buildpath(self):
 		bld = self.bld
@@ -572,6 +611,7 @@ CODEBLOCKS_PROJECT = \
             <Target title="XXX">
                 <Option output="XXX" prefix_auto="1" extension_auto="1" />
                 <Option object_output="XXX" />
+				<Option working_dir="."/>
                 <Option type="2" />
                 <Option compiler="gcc" />
                 <Compiler/>
