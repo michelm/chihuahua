@@ -4,6 +4,7 @@
 
 import os
 from waflib.Build import BuildContext, CleanContext, InstallContext, UninstallContext
+from waftools.export import ExportContext
 
 top = '.'
 out = 'build'
@@ -19,6 +20,11 @@ POKY = {
 	'/opt/poky/1.4.2/environment-setup-armv7a-vfp-neon-poky-linux-gnueabi'
 }
 VARIANTS = POKY.keys()
+CONTEXTS = (
+	BuildContext, CleanContext, 
+	InstallContext, UninstallContext, 
+	ExportContext
+)
 	
 
 def options(opt):
@@ -113,6 +119,7 @@ def _create_poky_env(conf, prefix, name, fname):
 	_add_poky_binaries(conf, env)
 	conf.load('compiler_c')
 	conf.load('compiler_cxx')
+	conf.load('export')
 	_add_poky_options(conf, env)
 
 
@@ -166,7 +173,7 @@ def _add_poky_options(conf, environment):
 
 
 for var in VARIANTS:
-	for ctx in (BuildContext, CleanContext, InstallContext, UninstallContext):
+	for ctx in CONTEXTS:
 		name = ctx.__name__.replace('Context','').lower()
 		class _t(ctx):
 			__doc__ = "%ss '%s'" % (name, var)
