@@ -317,7 +317,7 @@ class _CBProject(_CodeBlocks):
 		build = project.find('Build')
 		for target in build.iter('Target'):
 			for option in target.iter('Option'):
-				if option.get('compiler') == toolchain:
+				if option.get('compiler') in [toolchain, 'XXX']:
 					return target
 
 		target = copy.deepcopy(build.find('Target'))
@@ -400,15 +400,21 @@ class _CBProject(_CodeBlocks):
 		'''Returns the name of the compiler toolchain.
 		'''
 		if self.gen.env.DEST_OS == 'win32':
-			toolchain = 'mingw32'
+			if sys.platform == 'win32':
+				toolchain = 'gcc'
+			else:
+				toolchain = 'mingw32'
+
 		elif self.gen.env.DEST_CPU != platform.processor():
 			bld = self.gen.bld
 			if bld.variant:
 				toolchain = 'gcc_%s' % bld.variant
 			else:
 				toolchain = 'gcc_%s' % self.gen.env.DEST_CPU
+
 		else:
 			toolchain = 'gcc'
+
 		return toolchain
 
 	def _get_target_title(self):
@@ -611,9 +617,9 @@ CODEBLOCKS_PROJECT = \
             <Target title="XXX">
                 <Option output="XXX" prefix_auto="1" extension_auto="1" />
                 <Option object_output="XXX" />
-				<Option working_dir="."/>
+                <Option working_dir="."/>
                 <Option type="2" />
-                <Option compiler="gcc" />
+                <Option compiler="XXX" />
                 <Compiler/>
                 <Linker/>
             </Target>

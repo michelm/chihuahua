@@ -3,6 +3,7 @@
 # Michel Mooij, michel.mooij7@gmail.com
 
 import os
+import sys
 from waflib.Build import BuildContext, CleanContext, InstallContext, UninstallContext
 from waftools.export import ExportContext
 
@@ -19,7 +20,11 @@ POKY = {
 	'arm7':
 	'/opt/poky/1.4.2/environment-setup-armv7a-vfp-neon-poky-linux-gnueabi'
 }
+
 VARIANTS = POKY.keys()
+if sys.platform != 'win32':
+	VARIANTS.append('win32')
+
 CONTEXTS = (
 	BuildContext, CleanContext, 
 	InstallContext, UninstallContext, 
@@ -60,6 +65,7 @@ def configure(conf):
 
 	for key, value in POKY.items():
 		_create_poky_env(conf, prefix, key, value)
+	_create_mingw_env(conf, prefix)
 
 	conf.setenv('')
 	conf.load('compiler_c')
@@ -170,6 +176,20 @@ def _add_poky_options(conf, environment):
 	options = env['CXX'].replace('"', '').split()[1:]
 	for option in options:
 		conf.env.append_unique('CXXFLAGS', option)
+
+
+def _create_mingw_env(conf, prefix, name='win32'):
+	'''Create a cross compile environment for MinGW.'''
+	conf.setenv(name)
+	conf.env.PREFIX = os.sep.join([prefix, 'opt', name])
+	conf.env.BINDIR = os.sep.join([prefix, 'opt', name, 'bin'])
+	conf.env.LIBDIR = os.sep.join([prefix, 'opt', name, 'lib'])
+	conf.env.CC = ['x86_64-w64-mingw32-gcc']
+	conf.env.CXX = ['x86_64-w64-mingw32-g++']
+	conf.env.AR = ['x86_64-w64-mingw32-ar']
+	conf.load('compiler_c')
+	conf.load('compiler_cxx')
+	conf.load('export')
 
 
 for var in VARIANTS:
