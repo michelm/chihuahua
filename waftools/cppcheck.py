@@ -22,7 +22,7 @@ def options(opt):
 		help='continue in case of errors (default=False)')
 
 	opt.add_option('--cppcheck-bin-enable', dest='cppcheck_bin_enable',
-		default='warning,performance,portability,style,unusedFunction', 
+		default='warning,performance,portability,style,unusedFunction',
 		action='store',
 		help="cppcheck option '--enable=' for binaries (default=warning,performance,portability,style,unusedFunction)")
 
@@ -50,7 +50,7 @@ def options(opt):
 def configure(conf):
 	if conf.options.cppcheck:
 		conf.env.CPPCHECK_EXECUTE = [1]
-				
+		
 	conf.env.CPPCHECK_STD_C = conf.options.cppcheck_std_c
 	conf.env.CPPCHECK_STD_CXX = conf.options.cppcheck_std_cxx
 	conf.env.CPPCHECK_MAX_CONFIGS = conf.options.cppcheck_max_configs
@@ -138,11 +138,11 @@ class Cppcheck(object):
 	
 	def create_css_file(self, name):
 		css = str(CPPCHECK_CSS_FILE)
-		if hasattr(self, 'css_style_defs'):		
+		if hasattr(self, 'css_style_defs'):
 			css += "\n%s\n" % (self.css_style_defs)
 		self.save_file(name, css)
 
-	def	create_html_index(self, catalog):
+	def create_html_index(self, catalog):
 		# save the CSS file for the top page of problem report
 		self.create_css_file('style.css')
 
@@ -197,7 +197,7 @@ class CppcheckGen(Cppcheck):
 	def execute(self):
 		bld = self.taskgen.bld
 		cmd = self.get_command()
-		stderr = bld.cmd_and_log(cmd, quiet=Context.BOTH, output=Context.STDERR)		
+		stderr = bld.cmd_and_log(cmd, quiet=Context.BOTH, output=Context.STDERR)
 		
 		# save the result from command line to a XML report
 		self.save_xml_report(stderr, cmd)
@@ -230,7 +230,7 @@ class CppcheckGen(Cppcheck):
 
 		cmd  = ['%s' % env.CPPCHECK, '-v', '--xml', '--xml-version=2']
 		cmd.append('--inconclusive')
-		cmd.append('--report-progress')	
+		cmd.append('--report-progress')
 		cmd.append('--max-configs=%s' % max_configs)
 
 		if 'cxx' in features:
@@ -268,7 +268,7 @@ class CppcheckGen(Cppcheck):
 		content = '\n'.join([l for l in s.splitlines() if len(l.strip())])
 
 		gen = self.taskgen
-		name = '%s/%s.xml' % (gen.path.relpath(), gen.get_name())		
+		name = '%s/%s.xml' % (gen.path.relpath(), gen.get_name())
 		self.save_file(name, content)
 
 	def get_html_index(self):
@@ -295,13 +295,13 @@ class CppcheckGen(Cppcheck):
 	def create_html_report(self, defects):
 		# create a HTML for each source file
 		files = self.create_html_files(defects)
-				
+		
 		# create a HTML top page for this task generator
 		index = self.create_html_index(files)
 
 		# create a CSS file used by the HTML files of this task generator
 		gen = self.taskgen
-		name = '%s/%s/style.css' % (gen.path.relpath(), gen.get_name())		
+		name = '%s/%s/style.css' % (gen.path.relpath(), gen.get_name())
 		self.create_css_file(name)
 		return index
 
@@ -379,7 +379,7 @@ class CppcheckGen(Cppcheck):
 				h1 = div.find('h1')
 				h1.text = 'cppcheck report - %s' % (name)
 				
-			if div.get('id') == 'menu':				
+			if div.get('id') == 'menu':
 				a = div.find('a')
 				a.set('href', home.replace('\\', '/'))
 				a = ElementTree.SubElement(div, 'a')
@@ -400,7 +400,7 @@ class CppcheckGen(Cppcheck):
 
 		content = ElementTree.tostring(root, method='html')
 		content = self.html_clean(content)
-		self.save_file(fname, content)		
+		self.save_file(fname, content)
 		return css_style_defs
 
 	def create_html_index(self, files):
@@ -644,4 +644,3 @@ th, td {
 """
 
 
-	
