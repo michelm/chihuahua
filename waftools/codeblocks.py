@@ -372,7 +372,11 @@ class _CBProject(_CodeBlocks):
 		if self.gen.env.DEST_OS == 'win32':
 			toolchain = 'mingw32'
 		elif self.gen.env.DEST_CPU != platform.processor():
-			toolchain = 'gcc_%s' % self.gen.env.DEST_CPU
+			bld = self.gen.bld
+			if bld.variant:
+				toolchain = 'gcc_%s' % bld.variant
+			else:
+				toolchain = 'gcc_%s' % self.gen.env.DEST_CPU
 		else:
 			toolchain = 'gcc'
 		return toolchain
