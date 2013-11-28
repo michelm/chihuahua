@@ -557,33 +557,75 @@ class _WafCBProject(_CodeBlocks):
 		'''Returns the file name.'''
 		return 'waf.cbp'
 
+	def _get_root(self):
+		'''Returns a document root, either from an existing file, or from template.
+		'''
+		fname = self._get_fname()
+		if os.path.exists(fname):
+			tree = ElementTree.parse(fname)
+			root = tree.getroot()
+		else:
+			root = ElementTree.fromstring(CODEBLOCKS_PROJECT)
+		return root
+
+	def _init_target(self, target, name):
+		'''Initializes a WAF build target.'''
+		target.set('title', name)
+
+		for option in target.iter('Option'):
+			if option.get('output'):
+				option.set('output', '')
+			elif option.get('object_output'):
+				option.set('object_output', '')
+			elif option.get('compiler'):
+				option.set('compiler', 'gcc')
+
+		cmd = target.find('ExtraCommands/Add')
+		cmd.set('before', 'waf %s' % (name))
+		return target
+
+	def _add_target(self, project, name):
+		'''Adds a WAF build target with given name.
+
+		Will only be added if target does not exist yet.
+		'''
+		build = project.find('Build')
+		cmd = 'waf %s' % name
+
+		for target in build.iter('Target'):
+			if target.get('title') == 'XXX':
+				commands = ElementTree.SubElement(target, 'ExtraCommands')
+				ElementTree.SubElement(commands, 'Add', {'before': cmd})
+				return self._init_target(target, name)
+
+			if target.get('title') == name:
+				return self._init_target(target, name)
+
+		target = copy.deepcopy(build.find('Target'))
+		build.append(target)
+		return self._init_target(target, name)
+
 	def _get_content(self):
 		'''Returns the content of a code::blocks project file.
 		'''
-		root = ElementTree.fromstring(CODEBLOCKS_PROJECT)
+		root = self._get_root()
 		project = root.find('Project')
 		for option in project.iter('Option'):
 			if option.get('title'):
 				option.set('title', self.title)
 
-		target = project.find('Build/Target')
-		target.set('title', 'build')
-		for option in target.iter('Option'):
-			if option.get('output'):
-				option.set('output', '')
+		bld = self.bld
+		targets = ['build', 'clean', 'install', 'uninstall']
+		if bld.variant:
+			targets = ['%s_%s' % (t, bld.variant) for t in targets]
 
-			elif option.get('object_output'):
-				option.set('object_output', '')
+		for target in project.iter('Build/Target'):
+			name = target.get('title')
+			if name in targets:
+				targets.remove(name)
 
-		for cmd in ['clean', 'install', 'uninstall']:
-			tgt = copy.deepcopy(target)
-			tgt.set('title', cmd)
-			project.find('Build').append(tgt)
-
-		for target in project.iter('Target'):
-			cmd = 'waf %s' % target.get('title')
-			build = ElementTree.SubElement(target, 'ExtraCommands')
-			ElementTree.SubElement(build, 'Add', {'before': cmd})
+		for target in targets:
+			self._add_target(project, target)
 
 		return ElementTree.tostring(root)
 
