@@ -9,15 +9,15 @@ This module exports and converts *waf* project data, for C/C++ programs,
 static- and shared libraries, into **Code::Blocks** project files (.cbp) and 
 workspaces (codeblock.workspace).
 **Code::Blocks** is an open source integrated development environment for C
-and C++. It is available for all major Deskop Operating Systems (MS Windows,
+and C++. It is available for all major Desktop Operating Systems (MS Windows,
 all major Linux distributions and Macintosh OS-X).
 See http://www.codeblocks.org for a more detailed description on how to install
 and use it for your particular Desktop environment.
-
+ 
 Description
 -----------
 When exporting *waf* project data, a single **Code::Blocks** workspace will be
-exported in the top level directory of the *waf* build environment. This 
+exported in the top level directory of your *WAF* build environment. This 
 workspace file will contain references to all exported **Code::Blocks** 
 projects and will include dependencies between those projects.
 
@@ -30,8 +30,8 @@ The name of this task generator will be used as name for the exported
 is *hello*, then a **Code::Blocks** project file named *hello.cbp* will be 
 exported.
 
-The following example presents an overview of an environment in which
-**Code::Blocks** files already have been exported::
+Example below presents an overview of an environment in which **Code::Blocks** 
+files already have been exported::
 
         .
         ├── components
@@ -50,49 +50,53 @@ The following example presents an overview of an environment in which
         ├── codeblocks.workspace
         └── wscript
 
-Furthermore a special **Code::Blocks** project named *waf.cbp* will be
-generated in the top level directory of the build environment. This project 
-will contain the following build targets:
+
+Projects will be exported such that they will use the same settings and 
+structure as has been defined for that build task within the *waf* build 
+environment. Projects will contain exactly **one** build target per build 
+variant that has been defined in the *waf* build environment, as explained in
+the example below;
+
+	**input**:
+	In a *waf* build environment three variants have been defined, one 
+	default (without name) build used for normal compiling and linking for the 
+	current host, and two variants used for cross compiling and linking for
+	embedded systems; one is named *arm5* the other *arm7*.
+	Also the *complete* environment has been configured to be build with
+	debugging information (i.e. the CFLAGS and CXXFLAGS both contain the 
+	compiler option`-g`).
+	
+	**output**:
+	Each exported project will contain the following build targets:
+	- The first named **debug**, for the current host platform,
+	- The second named **arm5-debug**, for the ARM5 target, and
+	- The third named **arm7-debug**, for the ARM7 target. 
+	
+Please note that in contrast to a *normal* IDE setup the exported projects 
+will contain either a *debug* **or** a *release* build target but not both at
+the same time. By doing so exported projects will always use the same settings
+(e.g. compiler options, installation paths) as when building the same task in
+the *waf* build environment from command line.
+
+Besides these normal projects that will be exported based on the task 
+generators that have been defined within the *waf* build environment, a special
+**Code::Blocks** project named *waf.cbp* will also be exported. This project 
+will be stored in the top level directory of the build environment and will
+contain the following build targets per build variant;
 
 * build
 * clean
 * install
 * uninstall
 
-Each of these targets contains a single prebuild step for executing a *waf*
-command on the entire build environment; building the *clean* target, for 
-instance, will result in all build results being removed from the build 
-directory in the build environment.
+If, for instance, an additional build variant named *arm5* has been defined in 
+the *waf* build environment, then the following build targets will be added as
+well;
 
-Projects will be exported such that they will use the same settings and 
-structure as has been defined for that build task within the *waf* build 
-environment. Following present a summary of the items that will be exported to
-**Code::Blocks** projects:
-
-* Source files
-* Inlcude paths
-* Preprocessor defines
-* Compiler settings
-* Linker settings
-* Libraries to be use
-* Library search paths
-* Build location (same as in *waf* environment)
-* Debug and start location (install location as defined in *waf* environment)
-
-All this information will be combined in a single *build* *target* within the 
-project. The name of this build target depends on the current environment 
-configuration and the compiler being used to build the target; if the build 
-environment, for instance, has been configured to build all C/C++ tasks
-with debugging information the build target will be named *Debug* otherwise 
-it will be named *Release*. If the destination OS and/or destination CPU is 
-not the same as current host on which the target will be build, then these 
-will also be added to the name of the build target (e.g. *Debug-WIN32* when 
-cross compiling for Windows on a Linux host).
-Please note that only **one** build target will be exported for each 
-environment (see waf *variants*) that has been defined in the actual waf 
-build environment. So when using a single waf build environment, i.e. one 
-without using variants, **Code::Blocks** projects will be exported for either
-*Debug* **or** *Release*, depending on the current configuration.
+* build_arm5
+* clean_arm5
+* install_arm5
+* uninstall_arm5
 
 Usage
 -----
@@ -113,7 +117,7 @@ Module Interface
 ----------------
 Basically the module exposes only two public methods; one for exporting project
 files and workspaces (*export*), and one for deleting exporting project files
-and workspaces (*cleanup*).
+and workspaces (*cleanup*). 
 '''
 
 import os
@@ -134,10 +138,10 @@ def export(bld):
 	:type bld: waflib.BuildContext
 	:returns: None
 	'''
-	workspace = _CBWorkspace(bld)
+	workspace = CBWorkspace(bld)
 	for gen, targets in bld.components.items():
 		if set(('c', 'cxx')) & set(getattr(gen, 'features', [])):
-			project = _CBProject(bld, gen, targets)
+			project = CBProject(bld, gen, targets)
 			project.export()
 			workspace.add_project(project.get_metadata())
 			cc_name = project.get_toolchain()
@@ -153,7 +157,7 @@ def export(bld):
 		Logs.info("AR            : '%s'" % bld.export.ar)
 		Logs.info("")
 
-	project = _WafCBProject(bld)
+	project = WafCBProject(bld)
 	project.export()
 	workspace.add_project(project.get_metadata())
 	workspace.export()
@@ -168,17 +172,17 @@ def cleanup(bld):
 	:returns: None
 	'''
 	for gen, targets in bld.components.items():
-		project = _CBProject(bld, gen, targets)
+		project = CBProject(bld, gen, targets)
 		project.cleanup()
 
-	project = _WafCBProject(bld)
+	project = WafCBProject(bld)
 	project.cleanup()
 
-	workspace = _CBWorkspace(bld)
+	workspace = CBWorkspace(bld)
 	workspace.cleanup()
 
 
-class _CodeBlocks(object):
+class CodeBlocks(object):
 	'''Abstract base class used for exporting *waf* project data to 
 	**Code::Blocks** projects and workspaces.
 	'''
@@ -248,13 +252,13 @@ class _CodeBlocks(object):
 		return '\n'.join(lines)
 
 
-class _CBWorkspace(_CodeBlocks):
+class CBWorkspace(CodeBlocks):
 	'''Class used for exporting *waf* project data to a **Code::Blocks** 
 	workspace located in the lop level directory of the *waf* build
 	environment.
 	'''
 	def __init__(self, bld):
-		super(_CBWorkspace, self).__init__(bld)
+		super(CBWorkspace, self).__init__(bld)
 		self.projects = {}
 
 	def _get_fname(self):
@@ -283,13 +287,13 @@ class _CBWorkspace(_CodeBlocks):
 		self.projects[name] = (fname, deps)
 
 
-class _CBProject(_CodeBlocks):
+class CBProject(CodeBlocks):
 	'''Class used for exporting *waf* project data to **Code::Blocks** 
 	projects.
 	'''
 
 	def __init__(self, bld, gen, targets):
-		super(_CBProject, self).__init__(bld)
+		super(CBProject, self).__init__(bld)
 		self.gen = gen
 		self.targets = targets
 
@@ -347,7 +351,7 @@ class _CBProject(_CodeBlocks):
 			elif option.get('compiler'):
 				option.set('compiler', toolchain)
 			elif option.get('working_dir'):
-				if target_type == _CodeBlocks.PROGRAM:
+				if target_type == CodeBlocks.PROGRAM:
 					option.set('working_dir', self._get_working_directory())
 
 		compiler = target.find('Compiler')
@@ -544,13 +548,13 @@ class _CBProject(_CodeBlocks):
 		return includes
 
 
-class _WafCBProject(_CodeBlocks):
+class WafCBProject(CodeBlocks):
 	'''Class used for creating a dummy **Code::Blocks** project containing
 	only waf commands as pre-build steps.
 	'''
 
 	def __init__(self, bld):
-		super(_WafCBProject, self).__init__(bld)
+		super(WafCBProject, self).__init__(bld)
 		self.title = 'waf'
 
 	def _get_fname(self):

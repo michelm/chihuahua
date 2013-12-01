@@ -122,7 +122,7 @@ def _create_poky_env(conf, prefix, name, fname):
 	conf.env.LIBDIR = os.sep.join([prefix, 'opt', name, 'lib'])
 
 	env = _get_poky_environment(fname)
-	_add_poky_binaries(conf, env)
+	_set_poky_binaries(conf, env)
 	conf.load('compiler_c')
 	conf.load('compiler_cxx')
 	conf.load('export')
@@ -141,7 +141,10 @@ def _get_poky_environment(fname):
 	return env
 
 
-def _add_poky_binaries(conf, environment):
+def _set_poky_binaries(conf, environment):
+	'''Sets paths to programs used when cross compiling using the
+	YOCTO/POKY SDK.
+	'''
 	env = dict(environment)
 
 	paths = env['PATH'].replace('$PATH', '')
@@ -166,6 +169,9 @@ def _add_poky_binaries(conf, environment):
 
 
 def _add_poky_options(conf, environment):
+	'''Set environment options (e.g. compile flags) for the cross
+	compile environment using the YOCTO/POKY SDK.
+	'''
 	env = dict(environment)
 	_set_cc_options(conf)
 
