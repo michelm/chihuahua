@@ -537,7 +537,7 @@ class CDTProject(Project):
 		if not self.is_language(language):
 			return
 		defines = list(self.gen.env.DEFINES)
-		if key == 'debug':
+		if key == 'debug' and defines.count('NDEBUG'):
 			defines.remove('NDEBUG')
 		if not len(defines):
 			return
