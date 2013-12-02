@@ -2,6 +2,88 @@
 # -*- encoding: utf-8 -*-
 # Michel Mooij, michel.mooij7@gmail.com
 
+# TODO: add documentation to classes
+# TODO: make class methods private
+# TODO: improve overall module documentation
+# TODO: add example on suppress rules in a file.
+# TODO: where can reports be found once generated?
+
+'''
+Introduction
+-----------
+This module provides a *waf* wrapper (i.e. waftool) around the static C/C++ 
+source code checking tool **cppcheck**.
+
+See http://cppcheck.sourceforge.net/ for more information on **cppcheck** 
+itself, and how you can obtain and install it for your particular desktop 
+environment. Note that many linux distributions already provide a ready to 
+install version of **cppcheck**. On *Fedora*, for instance, it can be installed
+using *yum*::
+
+	sudo yum install cppcheck
+
+**REMARK** This waftool depends on the **pygments** module, and is used for 
+creating colorful HTML reports using source code syntax highlighting. See 
+http://pygments.org/ for more information on this package.
+
+**REMARK** The generation of HTML reports used in this waftool is based on the 
+'cppcheck-htmlreport.py' script that comes shipped with the **cppcheck** tool.
+
+Description
+-----------
+##TODO## Detailed description.
+
+Usage
+-----
+In order to use this waftool simply add it to the 'options' and 'configure' 
+functions of your main *waf* script as shown in the example below::
+
+	def options(opt):
+		opt.load('cppcheck', tooldir='./waftools')
+
+	def configure(conf):
+		conf.load('cppcheck')
+		
+Note that example shown above assumes that the **cppcheck** waftool is located 
+in the sub directory named 'waftools'.
+
+When configured as shown in the example above, **cppcheck** will perform a 
+source code analysis on all C/C++ tasks that have been defined in your *waf* 
+build environment when using the '--cppcheck' build option::
+
+	waf build --cppcheck
+
+The example shown below for a C program will be used as input for **cppcheck** 
+when building the task::
+
+	def build(bld):
+		bld.program(name='foo', src='foobar.c')
+
+The result of the source code analysis will be stored both as XML and HTML 
+files in the build location for the task. Should any error be detected by
+**cppcheck**, then the build process will be aborted and a link to the HTML 
+report will be presented.
+
+When needed source code checking by **cppcheck** can be disabled per task or even 
+for each specific error and/or warning within a particular task.
+
+In order to exclude a task from source code checking add the skip option to the
+task as shown below::
+
+	def build(bld):
+		bld.program(name='foo',	src='foobar.c',	cppcheck_skip=True)
+
+When needed problems detected by cppcheck may be suppressed using a file 
+containing a list of suppression rules. The relative or absolute path to this 
+file can be added to the build task as shown in the example below::
+
+	bld.program(name='bar', src='foobar.c', cppcheck_suppress='bar.suppress')
+
+A **cppcheck** suppress file should contain one suppress rule per line. Each of 
+these rules will be passed as an '--suppress=<rule>' argument to **cppcheck**.
+
+'''
+
 import os
 import sys
 import xml.etree.ElementTree as ElementTree
@@ -10,8 +92,10 @@ import pygments
 from pygments import formatters, lexers
 from waflib import TaskGen, Context, Logs
 
+
 CPPCHECK_PATH = 'reports/cppcheck'
 CPPCHECK_FATALS = ['error']
+
 
 def options(opt):
 	opt.add_option('--cppcheck', dest='cppcheck', default=False,
