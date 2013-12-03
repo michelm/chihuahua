@@ -13,12 +13,22 @@ Export modules:
 - Add description for eclipse export module
 - Add export module for cmake
 + Add export module for eclipse
-- Add export module for visual studio
+- Update makefile export for multiple environments (variants)
+- Update eclipse export for multiple environments (variants)
+
+Import modules:
+- Add import module for codeblocks
+- Add import module for eclipse
+- Add import module for cmake
+- Add import module for visual studio
 
 Packaging modules:
 - Create fetch module for retrieving external dependencies
 - Create package module for NSIS
 - Create package module for RPM
+
+Environment:
+- Create tools for setting up a personal chihuahua build environment
 
 Verification:
 - Test environmont with Python 3.x.x
