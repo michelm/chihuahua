@@ -2,32 +2,22 @@
 # -*- encoding: utf-8 -*-
 # Michel Mooij, michel.mooij7@gmail.com
 
-# TODO: add documentation to classes
-# TODO: make class methods private
-# TODO: improve overall module documentation
 # TODO: add example on suppress rules in a file.
 # TODO: where can reports be found once generated?
 
 '''
-Introduction
------------
+Summary
+-------
 This module provides a *waf* wrapper (i.e. waftool) around the static C/C++ 
 source code checking tool **cppcheck**.
 
 See http://cppcheck.sourceforge.net/ for more information on **cppcheck** 
-itself, and how you can obtain and install it for your particular desktop 
+itself; how you can obtain and install it for your particular desktop 
 environment. Note that many linux distributions already provide a ready to 
 install version of **cppcheck**. On *Fedora*, for instance, it can be installed
 using *yum*::
 
-	sudo yum install cppcheck
-
-**REMARK** This waftool depends on the **pygments** module, and is used for 
-creating colorful HTML reports using source code syntax highlighting. See 
-http://pygments.org/ for more information on this package.
-
-**REMARK** The generation of HTML reports used in this waftool is based on the 
-'cppcheck-htmlreport.py' script that comes shipped with the **cppcheck** tool.
+	$ sudo yum install cppcheck
 
 Description
 -----------
@@ -93,11 +83,17 @@ from pygments import formatters, lexers
 from waflib import TaskGen, Context, Logs
 
 
-CPPCHECK_PATH = 'reports/cppcheck'
-CPPCHECK_FATALS = ['error']
+CPPCHECK_PATH = 'reports/cppcheck' # TODO: change into command line option
+CPPCHECK_FATALS = ['error'] # TODO: change into command line option
 
 
 def options(opt):
+	'''Adds command line options to the *waf* build environment 
+
+	:param opt: Options context from the *waf* build environment.
+	:type opt: waflib.Options.OptionsContext
+	'''
+	
 	opt.add_option('--cppcheck', dest='cppcheck', default=False,
 		action='store_true', help='check C/C++ sources (default=False)')
 
@@ -132,6 +128,13 @@ def options(opt):
 
 
 def configure(conf):
+	'''Method that will be invoked by *waf* when configuring the build 
+	environment.
+	
+	:param conf: Configuration context from the *waf* build environment.
+	:type conf: waflib.Configure.ConfigurationContext
+	'''	
+		
 	if conf.options.cppcheck:
 		conf.env.CPPCHECK_EXECUTE = [1]
 		
@@ -146,10 +149,18 @@ def configure(conf):
 @TaskGen.feature('c')
 @TaskGen.feature('cxx')
 def cppcheck_execute(self):
+	'''Method that will be invoked by *waf* for each task generator for the 
+	C/C++ language.
+	
+	:param self: A task generator that contains all information of the C/C++
+				 program, shared- or static library to be exported.
+	:type self: waflib.Task.TaskGen
+	''' 
+	
 	bld = self.bld
 	check = bld.env.CPPCHECK_EXECUTE
 	
-	# check if this task generator should checked
+	# check if this task generator should be checked
 	if not bool(check) and not bld.options.cppcheck:
 		return
 	if getattr(self, 'cppcheck_skip', False):
@@ -174,6 +185,17 @@ def cppcheck_execute(self):
 
 
 def cppcheck_postfun(bld):
+	'''Method that will be invoked by the *waf* build environment once the 
+	build has been completed.
+	
+	It will use the result of the source code checking stored within the given
+	build context and use it to create a global HTML index. This global index
+	page contains a reference to all reports on C/C++ components that have been
+	checked.
+	
+	:param bld: Build context from the *waf* build environment.
+	:type bld: waflib.Build.BuildContext		
+	'''
 	catalog = bld.cppcheck_catalog
 	if not len(catalog):
 		bld.fatal('CPPCHECK EMPTY CATALOG')
@@ -191,44 +213,50 @@ def cppcheck_postfun(bld):
 
 
 class CppcheckDefect(object):
-	pass
+	'''Temporary placeholder for passing reported defects per component within 
+	this module.
+
+	At run time the following attributes will be added::
+	
+		defect.id
+		defect.severity
+		defect.msg
+		defect.verbose
+		defect.file
+		defect.line
+	'''
 
 
 class Cppcheck(object):
+	'''Base class creating a **cppcheck** source code HTML report.
+	
+	:param bld: a *waf* build instance from the top level *wscript*.
+	:type bld: waflib.BuildContext
+	
+	:param root: location (path) where the report should be stored 
+	:type root: str
+	'''
+	
 	def __init__(self, bld, root):
 		self.bld = bld
 		self.root = root
 
 	def get_html_index(self):
+		'''Returns the absolute path name to the index file.
+		'''
 		name = '%s/%s/index.html' % (self.bld.path.abspath(), self.root)
 		return name.replace('\\', '/')
 
-	def save_file(self, name, content):
-		name = '%s/%s' % (self.root, name)
-				
-		path = os.path.dirname(name)
-		if not os.path.exists(path):
-			os.makedirs(path)
-
-		node = self.bld.path.make_node(name)
-		node.write(content)
-		return node
-
-	def html_clean(self, content):
-		h = '<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">'
-		lines = [l for l in content.splitlines() if len(l.strip())]
-		lines.insert(0, h)
-		return '\n'.join(lines)
-	
-	def create_css_file(self, name):
-		css = str(CPPCHECK_CSS_FILE)
-		if hasattr(self, 'css_style_defs'):
-			css += "\n%s\n" % (self.css_style_defs)
-		self.save_file(name, css)
-
 	def create_html_index(self, catalog):
+		'''Creates the HTML report.
+		
+		:param catalog: List of tuples, one for each checked C/C++ component.
+						Each tuple in this list contains the name, path to HTML
+						index file and a list of detected severity levels.
+		:type catalog:  list
+		'''
 		# save the CSS file for the top page of problem report
-		self.create_css_file('style.css')
+		self._create_css_file('style.css')
 
 		name = getattr(Context.g_module, Context.APPNAME)
 		version = getattr(Context.g_module, Context.VERSION)
@@ -248,13 +276,36 @@ class Cppcheck(object):
 				h1.text = 'cppcheck report - %s %s' % (name, version)
 			if div.get('id') == 'content':
 				content = div
-				self.create_index_table(content, catalog)
+				self._create_index_table(content, catalog)
 
 		content = ElementTree.tostring(root, method='html')
-		content = self.html_clean(content)
-		return self.save_file('index.html', content)
+		content = self._html_clean(content)
+		return self._save_file('index.html', content)
 
-	def create_index_table(self, content, catalog):
+	def _save_file(self, name, content):
+		name = '%s/%s' % (self.root, name)
+				
+		path = os.path.dirname(name)
+		if not os.path.exists(path):
+			os.makedirs(path)
+
+		node = self.bld.path.make_node(name)
+		node.write(content)
+		return node
+
+	def _html_clean(self, content):
+		h = '<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">'
+		lines = [l for l in content.splitlines() if len(l.strip())]
+		lines.insert(0, h)
+		return '\n'.join(lines)
+	
+	def _create_css_file(self, name):
+		css = str(CPPCHECK_CSS_FILE)
+		if hasattr(self, 'css_style_defs'):
+			css += "\n%s\n" % (self.css_style_defs)
+		self._save_file(name, css)
+
+	def _create_index_table(self, content, catalog):
 		table = ElementTree.fromstring(CPPCHECK_HTML_INDEX_TABLE)
 		for (name, index, severities) in catalog:
 			if os.path.exists(index):
@@ -267,11 +318,20 @@ class Cppcheck(object):
 				td.text = ','.join(set(severities))
 				if 'error' in severities:
 					td.set('class', 'error')
-				
 		content.append(table)
 
 
 class CppcheckGen(Cppcheck):
+	'''Class used for creating colorfull HTML reports based on the source code 
+	check results from **cppcheck**.
+	
+	:param taskgen: Contains all input information for the C/C++ component
+	:type taskgen: waflib.Task.TaskGen
+	:param root: path where the HTML report will be stored
+	:type root: str
+	:param fatals: List of severities that should be treated as fatal when encountered
+	:type fatals: list
+	'''	
 	def __init__(self, taskgen, root, fatals):
 		super(CppcheckGen, self).__init__(taskgen.bld, root)
 		self.taskgen = taskgen
@@ -279,27 +339,80 @@ class CppcheckGen(Cppcheck):
 		self.fatals = fatals
 
 	def execute(self):
+		'''Excutes source code checking using cppcheck on the C/C++
+		component.
+		
+		The XML results from cppcheck will converted and used to create
+		HTML reports.
+		
+		Returns a list of detected severities for this component.
+		'''
 		bld = self.taskgen.bld
-		cmd = self.get_command()
+		cmd = self._get_command()
 		stderr = bld.cmd_and_log(cmd, quiet=Context.BOTH, output=Context.STDERR)
 		
 		# save the result from command line to a XML report
-		self.save_xml_report(stderr, cmd)
+		self._save_xml_report(stderr, cmd)
 
 		# process and convert the results from command line
-		defects = self.get_defects(stderr)
+		defects = self._get_defects(stderr)
 		
 		# create a HTML report using the converted defects
-		index = self.create_html_report(defects)
+		index = self._create_html_report(defects)
 		
 		# report defects to standard output including a link to the report
-		self.print_defects(defects, index)
+		self._print_defects(defects, index)
 		
 		# create and return a list of severities
 		self.severities = [defect.severity for defect in defects]
 		return self.severities
 		
-	def get_command(self):
+	def get_html_index(self):
+		'''Returns the absolute path name to the index file.'''
+		bld = self.bld
+		gen = self.taskgen 
+		name = '%s/%s/%s/%s/index.html' % (bld.path.abspath(), self.root, gen.path.relpath(), gen.get_name())
+		return name.replace('\\', '/')
+
+	def create_html_index(self, files):
+		'''Creates the HTML report for a C/C++ component.
+		
+		:param files: 	Contains location to HTML files and error for each 
+						source file that is part of the component
+		:type files: 	dict
+		'''
+		bld = self.bld
+		gen = self.taskgen
+		name = gen.get_name()
+
+		# create the path to the top level HTML index page of the report
+		home = '%s/%s/index.html' % (bld.path.abspath(), self.root)
+		root = ElementTree.fromstring(CPPCHECK_HTML_FILE)
+		title = root.find('head/title')
+		title.text = 'cppcheck - report - %s' % (name)
+
+		body = root.find('body')
+		for div in body.findall('div'):
+			if div.get('id') == 'page':
+				page = div
+				break
+		for div in page.findall('div'):
+			if div.get('id') == 'header':
+				h1 = div.find('h1')
+				h1.text = 'cppcheck report - %s' % (name)
+			if div.get('id') == 'menu':
+				a = div.find('a')
+				a.set('href', home.replace('\\', '/'))
+			if div.get('id') == 'content':
+				content = div
+				self._create_html_table(content, files)
+
+		name = '%s/%s/index.html' % (gen.path.relpath(), gen.get_name())
+		content = ElementTree.tostring(root, method='html')
+		content = self._html_clean(content)
+		return self._save_file(name, content)
+
+	def _get_command(self):
 		'''returns the CPPCHECK command to be executed'''
 		bld = self.bld
 		gen = self.taskgen
@@ -340,7 +453,7 @@ class CppcheckGen(Cppcheck):
 			cmd.append('-I%r' % inc)
 		return cmd
 
-	def save_xml_report(self, stderr, cmd):
+	def _save_xml_report(self, stderr, cmd):
 		# create a XML tree from the command result 
 		root = ElementTree.fromstring(stderr)
 		element = ElementTree.SubElement(root.find('cppcheck'), 'cmd')
@@ -353,15 +466,9 @@ class CppcheckGen(Cppcheck):
 
 		gen = self.taskgen
 		name = '%s/%s.xml' % (gen.path.relpath(), gen.get_name())
-		self.save_file(name, content)
+		self._save_file(name, content)
 
-	def get_html_index(self):
-		bld = self.bld
-		gen = self.taskgen 
-		name = '%s/%s/%s/%s/index.html' % (bld.path.abspath(), self.root, gen.path.relpath(), gen.get_name())
-		return name.replace('\\', '/')
-
-	def get_defects(self, stderr):
+	def _get_defects(self, stderr):
 		defects = []
 		for error in ElementTree.fromstring(stderr).iter('error'):
 			defect = CppcheckDefect()
@@ -376,9 +483,9 @@ class CppcheckGen(Cppcheck):
 			defects.append(defect)
 		return defects
 
-	def create_html_report(self, defects):
+	def _create_html_report(self, defects):
 		# create a HTML for each source file
-		files = self.create_html_files(defects)
+		files = self._create_html_files(defects)
 		
 		# create a HTML top page for this task generator
 		index = self.create_html_index(files)
@@ -386,10 +493,10 @@ class CppcheckGen(Cppcheck):
 		# create a CSS file used by the HTML files of this task generator
 		gen = self.taskgen
 		name = '%s/%s/style.css' % (gen.path.relpath(), gen.get_name())
-		self.create_css_file(name)
+		self._create_css_file(name)
 		return index
 
-	def print_defects(self, defects, index):
+	def _print_defects(self, defects, index):
 		bld = self.bld
 		gen = self.taskgen
 		
@@ -411,7 +518,7 @@ class CppcheckGen(Cppcheck):
 			msg += "\n"
 			Logs.error(msg)
 
-	def create_html_files(self, defects):
+	def _create_html_files(self, defects):
 		# group the defects per source file
 		sources = {}
 		defects = [d for d in defects if getattr(d, 'file', None)]
@@ -432,7 +539,7 @@ class CppcheckGen(Cppcheck):
 			errs = sources[name]
 
 			# create a HTML report for each source file
-			self.css_style_defs = self.create_html_file(html, name, errs)
+			self.css_style_defs = self._create_html_file(html, name, errs)
 
 			# add location of HTML report including errors to files dictionary
 			# this dictionary will be used on the HTML index to list all
@@ -441,7 +548,7 @@ class CppcheckGen(Cppcheck):
 			
 		return files
 
-	def create_html_file(self, fname, source, errors):
+	def _create_html_file(self, fname, source, errors):
 		bld = self.bld
 		name = self.taskgen.get_name()
 		
@@ -483,43 +590,11 @@ class CppcheckGen(Cppcheck):
 				content.append(table)
 
 		content = ElementTree.tostring(root, method='html')
-		content = self.html_clean(content)
-		self.save_file(fname, content)
+		content = self._html_clean(content)
+		self._save_file(fname, content)
 		return css_style_defs
 
-	def create_html_index(self, files):
-		bld = self.bld
-		gen = self.taskgen
-		name = gen.get_name()
-
-		# create the path to the top level HTML index page of the report
-		home = '%s/%s/index.html' % (bld.path.abspath(), self.root)
-		root = ElementTree.fromstring(CPPCHECK_HTML_FILE)
-		title = root.find('head/title')
-		title.text = 'cppcheck - report - %s' % (name)
-
-		body = root.find('body')
-		for div in body.findall('div'):
-			if div.get('id') == 'page':
-				page = div
-				break
-		for div in page.findall('div'):
-			if div.get('id') == 'header':
-				h1 = div.find('h1')
-				h1.text = 'cppcheck report - %s' % (name)
-			if div.get('id') == 'menu':
-				a = div.find('a')
-				a.set('href', home.replace('\\', '/'))
-			if div.get('id') == 'content':
-				content = div
-				self.create_html_table(content, files)
-
-		name = '%s/%s/index.html' % (gen.path.relpath(), gen.get_name())
-		content = ElementTree.tostring(root, method='html')
-		content = self.html_clean(content)
-		return self.save_file(name, content)
-
-	def create_html_table(self, content, files):
+	def _create_html_table(self, content, files):
 		bld = self.bld
 		table = ElementTree.fromstring(CPPCHECK_HTML_TABLE)
 		
@@ -548,17 +623,26 @@ class CppcheckGen(Cppcheck):
 
 
 class CppcheckHtmlFormatter(pygments.formatters.HtmlFormatter):
+	'''Formatter used for adding error messages to HTML report containing
+	syntax highlighted source code.
+	'''
+	
 	errors = []
-	fmt = '<span style="background: #ffaaaa;padding: 3px;">&lt;--- %s</span>\n'
+	'''List of error messages. Contains the error message and line number.'''
+	
+	_fmt = '<span style="background: #ffaaaa;padding: 3px;">&lt;--- %s</span>\n'
 
 	def wrap(self, source, outfile):
+		'''Adds the error messages to the highlighted source code at the correct
+		location.
+		'''
 		line_no = 1
 		for i, t in super(CppcheckHtmlFormatter, self).wrap(source, outfile):
 			# If this is a source code line we want to add a span tag at the end.
 			if i == 1:
 				for error in self.errors:
 					if int(error.line) == line_no:
-						t = t.replace('\n', self.fmt % error.msg)
+						t = t.replace('\n', self._fmt % error.msg)
 				line_no = line_no + 1
 			yield i, t
 

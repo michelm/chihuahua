@@ -3,8 +3,8 @@
 # Michel Mooij, michel.mooij7@gmail.com
 
 '''
-Introduction
-------------
+Summary
+-------
 This module exports and converts *waf* project data, for C/C++ programs, 
 static- and shared libraries, into **Code::Blocks** project files (.cbp) and 
 workspaces (codeblock.workspace).
@@ -13,7 +13,7 @@ and C++. It is available for all major Desktop Operating Systems (MS Windows,
 all major Linux distributions and Macintosh OS-X).
 See http://www.codeblocks.org for a more detailed description on how to install
 and use it for your particular Desktop environment.
- 
+
 Description
 -----------
 When exporting *waf* project data, a single **Code::Blocks** workspace will be
@@ -103,21 +103,16 @@ Usage
 **Code::Blocks** project and workspace files can be exported using the *export* 
 command, as shown in the example below::
 
-        waf export --export-codeblocks
+        $ waf export --export-codeblocks
 
 When needed, exported **Code::Blocks** project- and workspaces files can be 
 removed using the *export-clean* command, as shown in the example below::
 
-        waf export --export-cleanup
+        $ waf export --export-cleanup
 
 Once exported simple open the *codeblocks.workspace* using **Code::Blocks**
 this will automatically open all exported projects as well.
 
-Module Interface
-----------------
-Basically the module exposes only two public methods; one for exporting project
-files and workspaces (*export*), and one for deleting exporting project files
-and workspaces (*cleanup*). 
 '''
 
 import os
@@ -136,14 +131,16 @@ def export(bld):
 	
 	:param bld: a *waf* build instance from the top level *wscript*.
 	:type bld: waflib.BuildContext
-	:returns: None
 	'''
 	workspace = CBWorkspace(bld)
 	for gen, targets in bld.components.items():
 		if set(('c', 'cxx')) & set(getattr(gen, 'features', [])):
 			project = CBProject(bld, gen, targets)
 			project.export()
-			workspace.add_project(project.get_metadata())
+			
+			(name, fname, deps) = project.get_metadata()
+			workspace.add_project(name, fname, deps)
+			
 			cc_name = project.get_toolchain()
 
 	if cc_name != 'gcc':
@@ -159,7 +156,9 @@ def export(bld):
 
 	project = WafCBProject(bld)
 	project.export()
-	workspace.add_project(project.get_metadata())
+	
+	(name, fname, deps) = project.get_metadata()
+	workspace.add_project(name, fname, deps)
 	workspace.export()
 
 
@@ -169,7 +168,6 @@ def cleanup(bld):
 	
 	:param bld: a *waf* build instance from the top level *wscript*.
 	:type bld: waflib.BuildContext
-	:returns: None
 	'''
 	for gen, targets in bld.components.items():
 		project = CBProject(bld, gen, targets)
@@ -185,19 +183,30 @@ def cleanup(bld):
 class CodeBlocks(object):
 	'''Abstract base class used for exporting *waf* project data to 
 	**Code::Blocks** projects and workspaces.
+
+	:param bld: Build context as used in *wscript* files of your *waf* build
+				environment.
+	:type bld:	waflib.Build.BuildContext
 	'''
 
 	PROGRAM	= '1'
-	STLIB	= '2'
-	SHLIB	= '3'
-	OBJECT	= '4'
+	'''Identifier for projects containing an executable'''
+
+	STLIB   = '2'
+	'''Identifier for projects containing a static library'''
+
+	SHLIB   = '3'
+	'''Identifier for projects containing a shared library'''
+	
+	OBJECT  = '4'
+	'''Identifier for projects for building objects only'''
 
 	def __init__(self, bld):
 		self.bld = bld
 		self.exp = bld.export
 
 	def export(self):
-		'''exports a code::blocks workspace or project.'''
+		'''Exports a **Code::Blocks** workspace or project.'''
 		content = self._get_content()
 		if not content:
 			return
@@ -209,7 +218,9 @@ class CodeBlocks(object):
 		node.write(content)
 
 	def cleanup(self):
-		'''deletes code::blocks workspace or project file including .layout and .depend files'''
+		'''Deletes a **Code::Blocks** workspace or project file including 
+		.layout and .depend files.
+		'''
 		cwd = self._get_cwd()
 		for node in cwd.ant_glob('*.layout'):
 			node.delete()
@@ -237,7 +248,7 @@ class CodeBlocks(object):
 			return None    
 		return self.bld.srcnode.make_node(name)
 
-	def _get_fname(self): 
+	def _get_fname(self):
 		'''<abstract> Returns file name.'''
 		return None
 
@@ -256,7 +267,12 @@ class CBWorkspace(CodeBlocks):
 	'''Class used for exporting *waf* project data to a **Code::Blocks** 
 	workspace located in the lop level directory of the *waf* build
 	environment.
+
+	:param bld: Build context as used in *wscript* files of your *waf* build
+				environment.
+	:type bld:	waflib.Build.BuildContext
 	'''
+	
 	def __init__(self, bld):
 		super(CBWorkspace, self).__init__(bld)
 		self.projects = {}
@@ -281,15 +297,34 @@ class CBWorkspace(CodeBlocks):
 				ElementTree.SubElement(project, 'Depends', attrib={'filename':fname})
 		return ElementTree.tostring(root)
 
-	def add_project(self, project):
-		'''Adds a project to the workspace.'''
-		(name, fname, deps) = project
+	def add_project(self, name, fname, deps):
+		'''Adds a project to the workspace.
+		
+		:param name:	Name of the project.
+		:type name:		str
+		:param fname:	Complete path to the project file
+		:type fname: 	str
+		:param deps:	List of names on which this project depends
+		:type deps: 	list of str
+		'''
 		self.projects[name] = (fname, deps)
 
 
 class CBProject(CodeBlocks):
 	'''Class used for exporting *waf* project data to **Code::Blocks** 
 	projects.
+
+	:param bld: Build context as used in *wscript* files of your *waf* build
+				environment.
+	:type bld:	waflib.Build.BuildContext
+	
+	:param gen: Task generator that contains all information of the task to be
+				converted and exported to the **Code::Blocks** project.
+	:type gen:	waflib.Task.TaskGen
+	
+	:param targets: (deprecated) List of tasks associated with this task 
+					generator and **Code::Blocks** project.
+	:type targets: list of waflib.Task.TaskBase instances
 	'''
 
 	def __init__(self, bld, gen, targets):
@@ -550,7 +585,11 @@ class CBProject(CodeBlocks):
 
 class WafCBProject(CodeBlocks):
 	'''Class used for creating a dummy **Code::Blocks** project containing
-	only waf commands as pre-build steps.
+	only *waf* commands as pre build steps.
+
+	:param bld: Build context as used in *wscript* files of your *waf* build
+				environment.
+	:type bld:	waflib.Build.BuildContext
 	'''
 
 	def __init__(self, bld):
