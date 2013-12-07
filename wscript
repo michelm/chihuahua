@@ -196,6 +196,7 @@ def _create_mingw_env(conf, prefix, name='win32'):
 	conf.load('compiler_c')
 	conf.load('compiler_cxx')
 	conf.load('export')
+	_set_cc_options(conf)
 
 
 for var in VARIANTS:
