@@ -12,6 +12,33 @@ import waflib
 from waflib import Logs
 
 
+def options(opt):
+	'''Adds command line options to the *waf* build environment 
+
+	:param opt: Options context from the *waf* build environment.
+	:type opt: waflib.Options.OptionsContext
+	'''
+	opt.add_option('--eclipse', dest='eclipse', default=False, 
+		action='store_true', help='select Eclipse for export/import actions')
+
+
+def configure(conf):
+	'''Method that will be invoked by *waf* when configuring the build 
+	environment.
+	
+	:param conf: Configuration context from the *waf* build environment.
+	:type conf: waflib.Configure.ConfigurationContext
+	'''	
+	if conf.options.eclipse:
+		conf.env.append_unique('ECLIPSE', 'eclipse')
+
+
+def _selected(bld):
+	'''Returns True when this module has been selected/configured.'''
+	m = bld.env.ECLIPSE
+	return len(m) > 0 or bld.options.eclipse
+
+
 def export(bld):
 	'''Generates Eclipse CDT projects for each C/C++ task.
 
@@ -20,6 +47,9 @@ def export(bld):
 	Warns when multiple task have been defined in the same,
 	or top level, directory.
 	'''
+	if not _selected(bld):
+		return
+
 	detect_workspace_location(bld)
 	scan_project_locations(bld)
 
@@ -35,6 +65,9 @@ def export(bld):
 def cleanup(bld):
 	'''Removes all generated Eclipse project and launcher files
 	'''
+	if not _selected(bld):
+		return
+
 	for gen, targets in bld.components.items():
 		if set(('c', 'cxx')) & set(getattr(gen, 'features', [])):
 			project = CDTProject(bld, gen, targets)

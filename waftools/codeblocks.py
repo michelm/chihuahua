@@ -103,12 +103,12 @@ Usage
 **Code::Blocks** project and workspace files can be exported using the *export* 
 command, as shown in the example below::
 
-        $ waf export --export-codeblocks
+        $ waf export --codeblocks
 
 When needed, exported **Code::Blocks** project- and workspaces files can be 
 removed using the *export-clean* command, as shown in the example below::
 
-        $ waf export --export-cleanup
+        $ waf export --cleanup --codeblocks
 
 Once exported simple open the *codeblocks.workspace* using **Code::Blocks**
 this will automatically open all exported projects as well.
@@ -124,14 +124,44 @@ from xml.dom import minidom
 from waflib import Utils, Node, Logs
 
 
+def options(opt):
+	'''Adds command line options to the *waf* build environment 
+
+	:param opt: Options context from the *waf* build environment.
+	:type opt: waflib.Options.OptionsContext
+	'''
+	opt.add_option('--codeblocks', dest='codeblocks', default=False, 
+		action='store_true', help='select codeblocks for export/import actions')
+
+
+def configure(conf):
+	'''Method that will be invoked by *waf* when configuring the build 
+	environment.
+	
+	:param conf: Configuration context from the *waf* build environment.
+	:type conf: waflib.Configure.ConfigurationContext
+	'''	
+	if conf.options.codeblocks:
+		conf.env.append_unique('CODEBLOCKS', 'codeblocks')
+
+
+def _selected(bld):
+	'''Returns True when this module has been selected/configured.'''
+	m = bld.env.CODEBLOCKS
+	return len(m) > 0 or bld.options.codeblocks
+
+
 def export(bld):
 	'''Exports all C and C++ task generators as **Code::Blocks** projects
 	and creates a **Code::Blocks** workspace containing references to 
 	those project.
 	
 	:param bld: a *waf* build instance from the top level *wscript*.
-	:type bld: waflib.BuildContext
+	:type bld: waflib.Build.BuildContext
 	'''
+	if not _selected(bld):
+		return
+
 	workspace = CBWorkspace(bld)
 	for gen, targets in bld.components.items():
 		if set(('c', 'cxx')) & set(getattr(gen, 'features', [])):
@@ -167,8 +197,11 @@ def cleanup(bld):
 	*waf* build environment.
 	
 	:param bld: a *waf* build instance from the top level *wscript*.
-	:type bld: waflib.BuildContext
+	:type bld: waflib.Build.BuildContext
 	'''
+	if not _selected(bld):
+		return
+
 	for gen, targets in bld.components.items():
 		project = CBProject(bld, gen, targets)
 		project.cleanup()

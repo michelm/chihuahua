@@ -6,7 +6,43 @@ import os
 import re
 from waflib import Utils, Node, Tools
 
+
+def options(opt):
+	'''Adds command line options to the *waf* build environment 
+
+	:param opt: Options context from the *waf* build environment.
+	:type opt: waflib.Options.OptionsContext
+	'''
+	opt.add_option('--makefile', dest='makefile', default=False, 
+		action='store_true', help='select makefile for export/import actions')
+
+
+def configure(conf):
+	'''Method that will be invoked by *waf* when configuring the build 
+	environment.
+	
+	:param conf: Configuration context from the *waf* build environment.
+	:type conf: waflib.Configure.ConfigurationContext
+	'''	
+	if conf.options.makefile:
+		conf.env.append_unique('MAKEFILE', 'makefile')
+
+
+def _selected(bld):
+	'''Returns True when this module has been selected/configured.'''
+	m = bld.env.MAKEFILE
+	return len(m) > 0 or bld.options.makefile
+
+
 def export(bld):
+	'''Exports all C and C++ task generators to makefiles.
+	
+	:param bld: a *waf* build instance from the top level *wscript*.
+	:type bld: waflib.Build.BuildContext
+	'''
+	if not _selected(bld):
+		return
+
 	root = MakeRoot(bld)
 	for gen, targets in bld.components.items():
 		child = MakeChild(bld, gen, targets)
@@ -16,6 +52,14 @@ def export(bld):
 
 
 def cleanup(bld):
+	'''Removes all generated makefiles from the *waf* build environment.
+	
+	:param bld: a *waf* build instance from the top level *wscript*.
+	:type bld: waflib.Build.BuildContext
+	'''
+	if not _selected(bld):
+		return
+
 	root = MakeRoot(bld)
 	for gen, targets in bld.components.items():
 		child = MakeChild(bld, gen, targets)
