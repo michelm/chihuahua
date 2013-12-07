@@ -86,6 +86,8 @@ class MakeRoot(Make):
 		out = os.path.abspath(self.exp.out)
 		if out.startswith(os.getcwd()):
 			out = '$(TOP)%s' % out[len(os.getcwd()):]
+		if self.bld.variant:
+			out = '%s/%s' % (out, self.bld.variant)
 		
 		s = MAKEFILE_ROOT
 		s = super(MakeRoot, self).populate(s)
