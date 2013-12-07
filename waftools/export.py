@@ -99,15 +99,15 @@ class Export(object):
 		ar = bld.env.AR
 		if isinstance(ar, list):
 			ar = ar[0]
-		self.ar = os.path.basename(ar)
-		self.cc = os.path.basename(bld.env.CC[0])
-		self.cxx = os.path.basename(bld.env.CXX[0])
+		self.ar = ar
+		self.cc = bld.env.CC[0]
+		self.cxx = bld.env.CXX[0]
 		self.rpath = ' '.join(bld.env.RPATH)
 		self.cflags = ' '.join(bld.env.CFLAGS)
 		self.cxxflags = ' '.join(bld.env.CXXFLAGS)
 		self.defines = ' '.join(bld.env.DEFINES)
 		self.dest_cpu = bld.env.DEST_CPU
-		self.dest_os = bld.env.DEST_OS		
+		self.dest_os = bld.env.DEST_OS
 		self._clean_os_separators()
 
 	def _clean_os_separators(self):
