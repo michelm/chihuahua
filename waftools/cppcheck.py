@@ -35,14 +35,69 @@ All these reports will be stored in the sub directory *reports/cppcheck* in the
 top level directory of your build environment. When needed this location can
 also be changed to, see command line options.
 
+Example below present an example of the reports generated in a build environment
+in which three *C* components have been defined::
+
+	.
+	├── components
+	│   ├── chello
+	│   │   ├── include
+	│   │   │   └── hello.h
+	│   │   ├── src
+	│   │   │   └── hello.c
+	│   │   └── wscript
+	│   ├── ciambad
+	│   │   ├── cppcheck.suppress
+	│   │   ├── include
+	│   │   ├── src
+	│   │   │   └── iambad.c
+	│   │   └── wscript
+	│   └── cleaking
+	│       ├── include
+	│       │   └── leaking.h
+	│       ├── src
+	│       │   └── leaking.c
+	│       └── wscript
+	├── reports
+	│   └── cppcheck
+	│       ├── components
+	│       │   ├── chello
+	│       │   │   ├── chello
+	│       │   │   │   ├── index.html
+	│       │   │   │   └── style.css
+	│       │   │   └── chello.xml
+	│       │   ├── ciambad
+	│       │   │   ├── ciambad
+	│       │   │   │   ├── 0.html
+	│       │   │   │   ├── index.html
+	│       │   │   │   └── style.css
+	│       │   │   └── ciambad.xml
+	│       │   └── cleaking
+	│       │       ├── cleaking
+	│       │       │   ├── 0.html
+	│       │       │   ├── index.html
+	│       │       │   └── style.css
+	│       │       └── cleaking.xml
+	│       ├── index.html
+	│       └── style.css
+	└── wscript
+
+Note that each report for a task generator from the components directory 
+contains an extra indent in the reports directory; cppchecks reports are stored
+in a sub directory using the name of the unique task generator as name for that
+sub directory. This allows for the creation of multiple reports at the same
+location in case a single *wscript* file contains multiple task generators in
+the components directory.  
+
 Under normal conditions no additional parameters or definitions are needed in
 the definition of a C/C++ task generator itself; simply defining it as 
 *program*, *stlib* or *shlib* and adding this module to the top level *wscript*
 of your *waf* build environment will suffice. However in some cases 
-**cppcheck** might detect problems that are either not true, or you just want to
-suppress them. In these cases you can either use global suppression options 
-(using command line options) *or* you can special rules to the definition of the
-C/C++ task generators in question (more on this the next section Usage).
+**cppcheck** might detect problems that are either not true, or you just want
+to suppress them. In these cases you can either use global suppression options
+(using command line options) but you can also add special rules to the 
+definition of the C/C++ task generators in question (more on this the next 
+section Usage).
 
 
 Usage
@@ -74,7 +129,11 @@ when building the task::
 The result of the source code analysis will be stored both as XML and HTML 
 files in the build location for the task. Should any error be detected by
 **cppcheck**, then the build process will be aborted and a link to the HTML 
-report will be presented.
+report will be presented. When desired you also choose to resume with checking
+other components after a fatal error has been detected using the following command
+line option::
+
+	$ waf build --cppcheck --cppcheck-err-resume 
 
 When needed source code checking by **cppcheck** can be disabled per task or even 
 for each specific error and/or warning within a particular task.
