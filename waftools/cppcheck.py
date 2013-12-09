@@ -2,8 +2,6 @@
 # -*- encoding: utf-8 -*-
 # Michel Mooij, michel.mooij7@gmail.com
 
-# TODO: add example on suppress rules in a file.
-# TODO: where can reports be found once generated?
 
 '''
 Summary
@@ -19,9 +17,33 @@ using *yum*::
 
 	$ sudo yum install cppcheck
 
+
 Description
 -----------
-##TODO## Detailed description.
+Each time a C/C++ task generator within your *waf* build environment is being 
+build or rebuild, its source code can be checked using cppcheck. This module 
+will gather and extract all the required information from the C/C++ task
+generator (e.g. *bld.program* defined somewhere in a *wscript* file) and will 
+use it to perform a source code analysis using cppcheck on command line. The 
+command line results from **cppcheck** (in XML format) will be used as input in 
+order to create a highlighted and colorful HTML report pinpointing all
+(possible) problems. 
+For each single C/C++ task defined within your *waf* build environment such a 
+separate HTML report will be created. Furthermore a single HTML index page will
+be created containing references to all individual HTML reports of components. 
+All these reports will be stored in the sub directory *reports/cppcheck* in the
+top level directory of your build environment. When needed this location can
+also be changed to, see command line options.
+
+Under normal conditions no additional parameters or definitions are needed in
+the definition of a C/C++ task generator itself; simply defining it as 
+*program*, *stlib* or *shlib* and adding this module to the top level *wscript*
+of your *waf* build environment will suffice. However in some cases 
+**cppcheck** might detect problems that are either not true, or you just want to
+suppress them. In these cases you can either use global suppression options 
+(using command line options) *or* you can special rules to the definition of the
+C/C++ task generators in question (more on this the next section Usage).
+
 
 Usage
 -----
@@ -83,20 +105,21 @@ from pygments import formatters, lexers
 from waflib import TaskGen, Context, Logs
 
 
-CPPCHECK_PATH = 'reports/cppcheck' # TODO: change into command line option
-CPPCHECK_FATALS = ['error'] # TODO: change into command line option
-
-
 def options(opt):
 	'''Adds command line options to the *waf* build environment 
 
 	:param opt: Options context from the *waf* build environment.
 	:type opt: waflib.Options.OptionsContext
 	'''
-	
 	opt.add_option('--cppcheck', dest='cppcheck', default=False,
 		action='store_true', help='check C/C++ sources (default=False)')
 
+	opt.add_option('--cppcheck-path', dest='cppcheck_path', default='reports/cppcheck',
+		action='store', help='location to save cppcheck reports to.')
+	
+	opt.add_option('--cppcheck-fatals', dest='cppcheck_fatals', default='error',
+		action='store', help='comma separated list of fatal severities')
+	
 	opt.add_option('--cppcheck-err-resume', dest='cppcheck_err_resume',
 		default=False, action='store_true',
 		help='continue in case of errors (default=False)')
@@ -133,11 +156,11 @@ def configure(conf):
 	
 	:param conf: Configuration context from the *waf* build environment.
 	:type conf: waflib.Configure.ConfigurationContext
-	'''	
-		
+	'''
 	if conf.options.cppcheck:
 		conf.env.CPPCHECK_EXECUTE = [1]
-		
+	conf.env.CPPCHECK_PATH = conf.options.cppcheck_path
+	conf.env.CPPCHECK_FATALS = conf.options.cppcheck_fatals.split(',')	
 	conf.env.CPPCHECK_STD_C = conf.options.cppcheck_std_c
 	conf.env.CPPCHECK_STD_CXX = conf.options.cppcheck_std_cxx
 	conf.env.CPPCHECK_MAX_CONFIGS = conf.options.cppcheck_max_configs
@@ -155,8 +178,7 @@ def cppcheck_execute(self):
 	:param self: A task generator that contains all information of the C/C++
 				 program, shared- or static library to be exported.
 	:type self: waflib.Task.TaskGen
-	''' 
-	
+	'''
 	bld = self.bld
 	check = bld.env.CPPCHECK_EXECUTE
 	
@@ -170,11 +192,11 @@ def cppcheck_execute(self):
 		bld.cppcheck_catalog = []
 		bld.add_post_fun(cppcheck_postfun)
 
-	fatals = CPPCHECK_FATALS
+	fatals = bld.env.CPPCHECK_FATALS
 	if bld.options.cppcheck_err_resume:
 		fatals = []
 
-	cppcheck = CppcheckGen(self, CPPCHECK_PATH, fatals)
+	cppcheck = CppcheckGen(self, bld.env.CPPCHECK_PATH, fatals)
 	cppcheck.execute()
 	
 	index = cppcheck.get_html_index()
@@ -201,7 +223,7 @@ def cppcheck_postfun(bld):
 		bld.fatal('CPPCHECK EMPTY CATALOG')
 		return
 		
-	cppcheck = Cppcheck(bld, CPPCHECK_PATH)
+	cppcheck = Cppcheck(bld, bld.env.CPPCHECK_PATH)
 	cppcheck.create_html_index(catalog)
 	
 	index = cppcheck.get_html_index()
@@ -236,7 +258,6 @@ class Cppcheck(object):
 	:param root: location (path) where the report should be stored 
 	:type root: str
 	'''
-	
 	def __init__(self, bld, root):
 		self.bld = bld
 		self.root = root
@@ -626,7 +647,6 @@ class CppcheckHtmlFormatter(pygments.formatters.HtmlFormatter):
 	'''Formatter used for adding error messages to HTML report containing
 	syntax highlighted source code.
 	'''
-	
 	errors = []
 	'''List of error messages. Contains the error message and line number.'''
 	
