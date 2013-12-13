@@ -73,27 +73,27 @@ class Make(object):
 		self.exp = bld.export
 
 	def export(self):
-		content = self.get_content()
+		content = self._get_content()
 		if not content:
 			return
-		node = self.make_node()
+		node = self._make_node()
 		if not node:
 			return
 		node.write(content)
 			
 	def cleanup(self):
-		node = self.find_node()
+		node = self._find_node()
 		if node:
 			node.delete()
 
-	def find_node(self):
-		name = self.get_name()
+	def _find_node(self):
+		name = self._get_name()
 		if not name:
 			return None
 		return self.bld.srcnode.find_node(name)
 
-	def make_node(self):
-		name = self.get_name()
+	def _make_node(self):
+		name = self._get_name()
 		if not name:
 			return None
 		return self.bld.srcnode.make_node(name)
@@ -104,11 +104,11 @@ class Make(object):
 		s = re.sub('==VERSION==', self.exp.version, s)
 		return s
 
-	def get_name(self):
+	def _get_name(self):
 		'''abstract operation to be defined in child'''
 		return None
 
-	def get_content(self):
+	def _get_content(self):
 		'''abstract operation to be defined in child'''
 		return None
 
@@ -118,11 +118,11 @@ class MakeRoot(Make):
 		super(MakeRoot, self).__init__(bld)
 		self.childs = []
 
-	def get_name(self):
+	def _get_name(self):
 		bld = self.bld
 		return '%s/Makefile' % (bld.path.relpath().replace('\\', '/'))
 
-	def get_content(self):
+	def _get_content(self):
 		prefix = os.path.abspath(self.exp.prefix)
 		if prefix.startswith(os.getcwd()):
 			prefix = '$(CURDIR)%s' % prefix[len(os.getcwd()):]
@@ -190,12 +190,12 @@ class MakeChild(Make):
 		self.targets = targets
 		self._process()
 
-	def get_name(self):
+	def _get_name(self):
 		gen = self.gen
 		name = '%s/%s.mk' % (gen.path.relpath(), gen.get_name())
 		return name.replace('\\', '/')
 
-	def get_content(self):		
+	def _get_content(self):		
 		if 'cprogram' in self.gen.features:
 			return self._get_cprogram_content()
 		elif 'cstlib' in self.gen.features:
@@ -216,7 +216,7 @@ class MakeChild(Make):
 	def get_data(self):
 		gen = self.gen
 		name = gen.get_name()
-		makefile = self.get_name()
+		makefile = self._get_name()
 		deps = Utils.to_list(getattr(gen, 'use', []))
 		return (name, makefile, deps)
 	

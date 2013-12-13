@@ -2,6 +2,20 @@
 # -*- encoding: utf-8 -*-
 # Michel Mooij, michel.mooij7@gmail.com
 
+'''
+Summary
+-------
+*TODO*
+
+Description
+-----------
+*TODO*
+
+Usage
+-----
+*TODO*
+
+'''
 
 import sys
 import os
@@ -46,12 +60,15 @@ def export(bld):
 	for the WAF build environment itself.
 	Warns when multiple task have been defined in the same,
 	or top level, directory.
+
+	:param bld: a *waf* build instance from the top level *wscript*.
+	:type bld: waflib.Build.BuildContext
 	'''
 	if not _selected(bld):
 		return
 
-	detect_workspace_location(bld)
-	scan_project_locations(bld)
+	_detect_workspace_location(bld)
+	_scan_project_locations(bld)
 
 	for gen, targets in bld.components.items():
 		if set(('c', 'cxx')) & set(getattr(gen, 'features', [])):
@@ -63,7 +80,10 @@ def export(bld):
 
 
 def cleanup(bld):
-	'''Removes all generated Eclipse project and launcher files
+	'''Removes all generated Eclipse project- and launcher files
+
+	:param bld: a *waf* build instance from the top level *wscript*.
+	:type bld: waflib.Build.BuildContext
 	'''
 	if not _selected(bld):
 		return
@@ -77,7 +97,7 @@ def cleanup(bld):
 	project.cleanup()
 
 
-def detect_workspace_location(bld):
+def _detect_workspace_location(bld):
 	'''Detect and save the top level directory containing Eclipse workspace
 	settings.
 	'''
@@ -90,7 +110,7 @@ def detect_workspace_location(bld):
 	bld.workspace_loc = path.replace('\\', '/')
 
 
-def scan_project_locations(bld):
+def _scan_project_locations(bld):
 	'''Warns when multiple TaskGen's has been defined in the same directory.
 
 	Since Eclipse works with static project filenames, only one project	per
@@ -128,7 +148,7 @@ def scan_project_locations(bld):
 		Logs.info('')
 
 
-def is_subdir(child, parent, follow_symlinks=True):
+def _is_subdir(child, parent, follow_symlinks=True):
 	'''Returns True when child is a sub directory of parent.
 	'''
 	if follow_symlinks:
@@ -138,6 +158,18 @@ def is_subdir(child, parent, follow_symlinks=True):
 
 
 class Project(object):
+	'''Base class for exporting *Eclipse* projects.
+
+	Exports the *Eclipse* *.project* file that is used for all types
+	of *Eclipse* projects.
+
+	:param bld: a *waf* build instance from the top level *wscript*.
+	:type bld: waflib.Build.BuildContext
+
+	:param gen: Task generator that contains all information of the task to be
+				converted and exported to the *Eclipse* project.
+	:type gen:	waflib.Task.TaskGen
+	'''
 	def __init__(self, bld, gen):
 		self.bld = bld
 		self.exp = bld.export
@@ -147,44 +179,46 @@ class Project(object):
 		self.comments = ['<?xml version="1.0" encoding="UTF-8"?>']
 
 	def export(self):
-		content = self.get_content()
+		'''Exports an *Eclipse* project or an Eclipse (CDT) launcher.'''
+		content = self._get_content()
 		if not content:
 			return
-		content = self.xml_clean(content)
+		content = self._xml_clean(content)
 
-		node = self.make_node()
+		node = self._make_node()
 		if not node:
 			return
 		node.write(content)
 
 	def cleanup(self):
-		node = self.find_node()
+		'''Deletes an *Eclipse* project or launcher.'''
+		node = self._find_node()
 		if node:
 			node.delete()
 
-	def find_node(self):
-		name = self.get_fname()
+	def _find_node(self):
+		name = self._get_fname()
 		if not name:
 			return None    
 		return self.bld.srcnode.find_node(name)
 
-	def make_node(self):
-		name = self.get_fname()
+	def _make_node(self):
+		name = self._get_fname()
 		if not name:
 			return None    
 		return self.bld.srcnode.make_node(name)
 
-	def get_fname(self):
+	def _get_fname(self):
 		if self.gen:
 			name = '%s/.project' % (self.gen.path.relpath().replace('\\', '/'))
 		else:
 			name = '.project'
 		return name
 
-	def get_content(self):
+	def _get_content(self):
 		root = ElementTree.fromstring(ECLIPSE_PROJECT)
 		name = root.find('name')
-		name.text = self.get_name()
+		name.text = self._get_name()
 
 		if self.gen:
 			projects = root.find('projects')
@@ -208,14 +242,14 @@ class Project(object):
 
 		return ElementTree.tostring(root)
 
-	def get_name(self):
+	def _get_name(self):
 		if self.gen:
 			name = self.gen.get_name()
 		else:
 			name = self.exp.appname
 		return name
 
-	def xml_clean(self, content):
+	def _xml_clean(self, content):
 		s = minidom.parseString(content).toprettyxml(indent="\t")
 		lines = [l for l in s.splitlines() if not l.isspace() and len(l)]
 		lines = self.comments + lines[1:] + ['']
@@ -223,6 +257,19 @@ class Project(object):
 
 
 class PyDevProject(Project):
+	'''Class for exporting *Eclipse* **PyDev** projects.
+
+	:param bld: a *waf* build instance from the top level *wscript*.
+	:type bld: waflib.Build.BuildContext
+
+	:param gen: Task generator that contains all information of the task to be
+				converted and exported to the *Eclipse* project.
+	:type gen:	waflib.Task.TaskGen
+
+	:param targets: list of processed tasks from the Task Generator
+					(deprecated).
+	:type targets: list
+	'''	
 	def __init__(self, bld, gen, targets):
 		super(PyDevProject, self).__init__(bld, gen)
 		self.targets = targets
@@ -233,20 +280,22 @@ class PyDevProject(Project):
 		self.comments = ['<?xml version="1.0" encoding="UTF-8" standalone="no"?>','<?eclipse-pydev version="1.0"?>']
 
 	def export(self):
+		'''Exports all files for an *Eclipse* **PyDev** project.'''
 		super(PyDevProject, self).export()
 		self.project.export()
 
 	def cleanup(self):
+		'''Deletes all files associated with the *Eclipse* **PyDev** project.'''
 		super(PyDevProject, self).cleanup()
 		self.project.cleanup()
 
-	def get_fname(self):
+	def _get_fname(self):
 		name = '.pydevproject'
 		if self.gen:
 			name = '%s/%s' % (self.gen.path.relpath(), name)
 		return name.replace('\\', '/')
 
-	def get_content(self):
+	def _get_content(self):
 		root = ElementTree.fromstring(ECLIPSE_PYDEVPROJECT)
 		for pathproperty in root.iter('pydev_pathproperty'):
 			if pathproperty.get('name')	== 'org.python.pydev.PROJECT_EXTERNAL_SOURCE_PATH':
@@ -256,6 +305,25 @@ class PyDevProject(Project):
 
 
 class WafProject(PyDevProject):
+	'''Class for exporting a special *Eclipse* project in the top level
+	directory of the *waf* build environment. The exported project contains
+	the most common *waf* commmand which can be executed from Eclipse.
+	By default the following commands will be exported::
+	
+		build
+		clean
+		configure
+		dist
+		distclean
+		install
+		uninstall
+
+	These commands can be found in the 'Make Target' view on the right hand
+	side of the workbench when the C/C++ perspective has been selected.
+
+	:param bld: a *waf* build instance from the top level *wscript*.
+	:type bld: waflib.Build.BuildContext
+	'''
 	def __init__(self, bld):
 		super(WafProject, self).__init__(bld, None, None)
 		self.cproject = WafCDT(bld, self.project)
@@ -267,15 +335,49 @@ class WafProject(PyDevProject):
 		self.ext_source_paths.append(path.replace('\\', '/'))
 
 	def export(self):
+		'''Exports all files for both an *Eclipse* *PyDev* **and** *CDT* 
+		project at the location of the task generator.
+		'''
 		super(WafProject, self).export()
 		self.cproject.export()
 
 	def cleanup(self):
+		'''Deletes all files associated with an *Eclipse* *PyDev* **and** *CDT*
+		project at the location of the task generator.
+		'''
 		super(WafProject, self).cleanup()
 		self.cproject.cleanup()
 
 
 class CDTProject(Project):
+	'''Class for exporting C/C++ task generators to an *Eclipse* *CDT* 
+	project.
+	When exporting this class exports three files associated with C/C++
+	projects::
+	
+		.project
+		.cproject
+		target_name.launch
+
+	The first file mostly contains perspective, the second contains the actual
+	C/C++ project while the latter is a launcher which can be import into
+	*Eclipse* and used to run and/or debug C/C++ programs. 
+	
+	:param bld: a *waf* build instance from the top level *wscript*.
+	:type bld: waflib.Build.BuildContext
+
+	:param gen: Task generator that contains all information of the task to be
+				converted and exported to the *Eclipse* project.
+	:type gen:	waflib.Task.TaskGen
+	
+	:param targets: list of processed tasks from the Task Generator
+					(deprecated).
+	:type targets: list
+	
+	:param project: Reference to *Eclipse* project (which will export the 
+					*.project* file.
+	:param project: Project
+	'''
 	def __init__(self, bld, gen, targets, project=None):
 		super(CDTProject, self).__init__(bld, gen)
 		self.targets = targets
@@ -309,16 +411,16 @@ class CDTProject(Project):
 		project.buildcommands.append(('org.eclipse.cdt.managedbuilder.core.ScannerConfigBuilder', 'full,incremental,', None))
 
 		self.uuid = {
-			'debug': self.get_uuid(),
-			'release': self.get_uuid(),
-			'c_debug_compiler': self.get_uuid(),
-			'c_debug_input': self.get_uuid(),
-			'c_release_compiler': self.get_uuid(),
-			'c_release_input': self.get_uuid(),
-			'cpp_debug_compiler': self.get_uuid(),
-			'cpp_debug_input': self.get_uuid(),
-			'cpp_release_compiler': self.get_uuid(),
-			'cpp_release_input': self.get_uuid(),
+			'debug': self._get_uuid(),
+			'release': self._get_uuid(),
+			'c_debug_compiler': self._get_uuid(),
+			'c_debug_input': self._get_uuid(),
+			'c_release_compiler': self._get_uuid(),
+			'c_release_input': self._get_uuid(),
+			'cpp_debug_compiler': self._get_uuid(),
+			'cpp_debug_input': self._get_uuid(),
+			'cpp_release_compiler': self._get_uuid(),
+			'cpp_release_input': self._get_uuid(),
 		}
 
 		if self.is_shlib:
@@ -334,6 +436,9 @@ class CDTProject(Project):
 			self.launch_debug = CDTLaunchDebug(bld, gen, self.uuid['debug'])
 
 	def export(self):
+		'''Exports all *Eclipse* *CDT* project files for an C/C++ task 
+		generator at the location of the task generator.
+		'''		
 		super(CDTProject, self).export()
 		self.project.export()
 		if hasattr(self, 'launch'):
@@ -342,6 +447,9 @@ class CDTProject(Project):
 			self.launch_debug.export()
 
 	def cleanup(self):
+		'''Deletes all *Eclipse* *CDT* project files associated with an C/C++ 
+		task generator at the location of the task generator.
+		'''
 		super(CDTProject, self).cleanup()
 		self.project.cleanup()
 		if hasattr(self, 'launch'):
@@ -349,44 +457,44 @@ class CDTProject(Project):
 		if hasattr(self, 'launch_debug'):
 			self.launch_debug.cleanup()
 
-	def get_fname(self):
+	def _get_fname(self):
 		name = '.cproject'
 		if self.gen is not None:
 			name = '%s/%s' % (self.gen.path.relpath(), name)
 		return name.replace('\\', '/')
 
-	def get_content(self):
+	def _get_content(self):
 		root = ElementTree.fromstring(ECLIPSE_CDT_PROJECT)
 		for module in root.findall('storageModule'):
 			if module.get('moduleId') == 'org.eclipse.cdt.core.settings':
-				self.update_cdt_core_settings(module)
+				self._update_cdt_core_settings(module)
 			if module.get('moduleId') == 'cdtBuildSystem':
-				self.update_buildsystem(module)
+				self._update_buildsystem(module)
 			if module.get('moduleId') == 'scannerConfiguration':
-				self.update_scannerconfiguration(module)
+				self._update_scannerconfiguration(module)
 			if module.get('moduleId') == 'refreshScope':
-				self.update_refreshscope(module)
+				self._update_refreshscope(module)
 		return ElementTree.tostring(root)
 
-	def get_uuid(self):
+	def _get_uuid(self):
 		return int(os.urandom(4).encode('hex'), 16)
 
-	def update_buildsystem(self, module):
+	def _update_buildsystem(self, module):
 		attr = {
-			'id': '%s.cdt.managedbuild.target.gnu.%s.%s' % (self.gen.get_name(), self.kind, self.get_uuid()),
+			'id': '%s.cdt.managedbuild.target.gnu.%s.%s' % (self.gen.get_name(), self.kind, self._get_uuid()),
 			'name': self.kind_name,
 			'projectType': 'cdt.managedbuild.target.gnu.%s' % (self.kind)
 		}
 		ElementTree.SubElement(module, 'project', attrib=attr)
 
-	def update_scannerconfiguration(self, module):
-		self.add_scanner_config_build_info(module, key='release', language='c')
-		self.add_scanner_config_build_info(module, key='debug', language='c')
+	def _update_scannerconfiguration(self, module):
+		self._add_scanner_config_build_info(module, key='release', language='c')
+		self._add_scanner_config_build_info(module, key='debug', language='c')
 		if self.language == 'cpp':
-			self.add_scanner_config_build_info(module, key='release', language='cpp')
-			self.add_scanner_config_build_info(module, key='debug', language='cpp')
+			self._add_scanner_config_build_info(module, key='release', language='cpp')
+			self._add_scanner_config_build_info(module, key='debug', language='cpp')
 
-	def add_scanner_config_build_info(self, module, key, language):
+	def _add_scanner_config_build_info(self, module, key, language):
 		cc_uuid = self.uuid['%s_%s_compiler' % (language, key)]
 		in_uuid = self.uuid['%s_%s_input' % (language, key)]
 		iid = [
@@ -400,22 +508,22 @@ class CDTProject(Project):
 		attrib= {'enabled':'true', 'problemReportingEnabled':'true', 'selectedProfileId':''}
 		ElementTree.SubElement(element, 'autodiscovery', attrib)
 
-	def update_refreshscope(self, module):
+	def _update_refreshscope(self, module):
 		for resource in module.iter('resource'):
 			resource.set('workspacePath', '/%s' % self.gen.get_name())
 
-	def update_cdt_core_settings(self, module):
-		self.add_cconfiguration(module, key='debug', name='Debug')
-		self.add_cconfiguration(module, key='release', name='Release')
+	def _update_cdt_core_settings(self, module):
+		self._add_cconfiguration(module, key='debug', name='Debug')
+		self._add_cconfiguration(module, key='release', name='Release')
 
-	def add_cconfiguration(self, module, key, name):
+	def _add_cconfiguration(self, module, key, name):
 		ccid = 'cdt.managedbuild.config.gnu.%s.%s.%s' % (self.kind, key, self.uuid[key])
 		cconfiguration = ElementTree.SubElement(module, 'cconfiguration', {'id':ccid})
-		self.add_configuration_data_provider(cconfiguration, key, name)
-		self.add_configuration_cdt_buildsystem(cconfiguration, key, name)
+		self._add_configuration_data_provider(cconfiguration, key, name)
+		self._add_configuration_cdt_buildsystem(cconfiguration, key, name)
 		ElementTree.SubElement(cconfiguration, 'storageModule', {'moduleId':'org.eclipse.cdt.core.externalSettings'})
 
-	def add_configuration_data_provider(self, cconfiguration, key, name):
+	def _add_configuration_data_provider(self, cconfiguration, key, name):
 		module = ElementTree.fromstring(ECLIPSE_CDT_DATAPROVIDER)
 		settings = module.find('externalSettings')
 		if self.is_program:
@@ -441,7 +549,7 @@ class CDTProject(Project):
 		provider.set('moduleId', 'org.eclipse.cdt.core.settings') 
 		provider.extend(module)
 
-	def add_configuration_cdt_buildsystem(self, cconfiguration, key, name):
+	def _add_configuration_cdt_buildsystem(self, cconfiguration, key, name):
 		module = ElementTree.fromstring(ECLIPSE_CDT_BUILDSYSTEM)
 		config = module.find('configuration')
 		config.set('name', name)
@@ -463,57 +571,57 @@ class CDTProject(Project):
 	
 		folder = config.find('folderInfo')
 		folder.set('id','cdt.managedbuild.config.gnu.%s.%s.%s.' % (self.kind, key, self.uuid[key]))
-		self.update_toolchain(folder, key, name)
+		self._update_toolchain(folder, key, name)
 		cconfiguration.append(module)
 
-	def update_toolchain(self, folder, key, name):
+	def _update_toolchain(self, folder, key, name):
 		toolchain = folder.find('toolChain')
 		toolchain.set('superClass', 'cdt.managedbuild.toolchain.gnu.%s.%s' % (self.kind, key))
-		toolchain.set('id', '%s.%s' % (toolchain.get('superClass'), self.get_uuid()))
+		toolchain.set('id', '%s.%s' % (toolchain.get('superClass'), self._get_uuid()))
 
 		target = toolchain.find('targetPlatform')
 		target.set('name', '%s Platform' % name)
 		target.set('superClass', 'cdt.managedbuild.target.gnu.platform.%s.%s' % (self.kind, key))
-		target.set('id', '%s.%s' % (target.get('superClass'), self.get_uuid()))
+		target.set('id', '%s.%s' % (target.get('superClass'), self._get_uuid()))
 
 		builder = toolchain.find('builder')
 		builder.set('buildPath', '${workspace_loc:/%s}/%s' % (self.gen.get_name(), key.title()))
 		builder.set('superClass', 'cdt.managedbuild.target.gnu.builder.%s.%s' % (self.kind, key))
-		builder.set('id', '%s.%s' % (builder.get('superClass'), self.get_uuid()))
+		builder.set('id', '%s.%s' % (builder.get('superClass'), self._get_uuid()))
 
 		archiver = ElementTree.SubElement(toolchain, 'tool', {'name':'GCC Archiver'})
 		if self.is_stlib:
 			archiver.set('superClass', 'cdt.managedbuild.tool.gnu.archiver.lib.%s' % key)
 		else:
 			archiver.set('superClass', 'cdt.managedbuild.tool.gnu.archiver.base')
-		archiver.set('id', '%s.%s' % (archiver.get('superClass'), self.get_uuid()))
+		archiver.set('id', '%s.%s' % (archiver.get('superClass'), self._get_uuid()))
 
-		self.add_compiler(toolchain, key, 'cpp', 'GCC C++ Compiler')
-		self.add_compiler(toolchain, key, 'c', 'GCC C Compiler')
-		self.add_linker(toolchain, key, 'c', 'GCC C Linker')
-		self.add_linker(toolchain, key, 'cpp', 'GCC C++ Linker')
+		self._add_compiler(toolchain, key, 'cpp', 'GCC C++ Compiler')
+		self._add_compiler(toolchain, key, 'c', 'GCC C Compiler')
+		self._add_linker(toolchain, key, 'c', 'GCC C Linker')
+		self._add_linker(toolchain, key, 'cpp', 'GCC C++ Linker')
 
 		assembler = ElementTree.SubElement(toolchain, 'tool', {'name':'GCC Assembler'})
 		assembler.set('superClass', 'cdt.managedbuild.tool.gnu.assembler.%s.%s' % (self.kind, key))
-		assembler.set('id', '%s.%s' % (assembler.get('superClass'), self.get_uuid()))
+		assembler.set('id', '%s.%s' % (assembler.get('superClass'), self._get_uuid()))
 		inputtype = ElementTree.SubElement(assembler, 'inputType')
 		inputtype.set('superClass', 'cdt.managedbuild.tool.gnu.assembler.input')
-		inputtype.set('id', '%s.%s' % (inputtype.get('superClass'), self.get_uuid()))
+		inputtype.set('id', '%s.%s' % (inputtype.get('superClass'), self._get_uuid()))
 
-	def add_compiler(self, toolchain, key, language, name):
+	def _add_compiler(self, toolchain, key, language, name):
 		uuid = self.uuid['%s_%s_compiler' % (language, key)]
 		compiler = ElementTree.SubElement(toolchain, 'tool', {'name' : name})
 		compiler.set('superClass', 'cdt.managedbuild.tool.gnu.%s.compiler.%s.%s' % (language, self.kind, key))
 		compiler.set('id', '%s.%s' % (compiler.get('superClass'), uuid))
-		self.add_cc_options(compiler, key, language)
-		self.add_cc_includes(compiler, key, language)
-		self.add_cc_preprocessor(compiler, key, language)
-		self.add_cc_input(compiler, key, 'c')
+		self._add_cc_options(compiler, key, language)
+		self._add_cc_includes(compiler, key, language)
+		self._add_cc_preprocessor(compiler, key, language)
+		self._add_cc_input(compiler, key, 'c')
 		if self.language == 'cpp':
-			self.add_cc_input(compiler, key, 'cpp')
+			self._add_cc_input(compiler, key, 'cpp')
 		return compiler
 
-	def add_cc_options(self, compiler, key, language):
+	def _add_cc_options(self, compiler, key, language):
 		if 'debug' in key:
 			optimization_level = 'none'
 			debug_level = 'max'
@@ -523,7 +631,7 @@ class CDTProject(Project):
 
 		option = ElementTree.SubElement(compiler, 'option', {'name':'Optimization Level', 'valueType':'enumerated'})
 		option.set('superClass', 'gnu.%s.compiler.%s.%s.option.optimization.level' % (language, self.kind, key))
-		option.set('id', '%s.%s' % (option.get('superClass'), self.get_uuid()))
+		option.set('id', '%s.%s' % (option.get('superClass'), self._get_uuid()))
 
 		if language == 'cpp':
 			option.set('value', 'gnu.cpp.compiler.optimization.level.%s' % (optimization_level))
@@ -532,19 +640,19 @@ class CDTProject(Project):
 
 		option = ElementTree.SubElement(compiler, 'option', {'name':'Debug Level', 'valueType':'enumerated'})
 		option.set('superClass', 'gnu.%s.compiler.%s.%s.option.debugging.level' % (language, self.kind, key))
-		option.set('id', '%s.%s' % (option.get('superClass'), self.get_uuid()))
+		option.set('id', '%s.%s' % (option.get('superClass'), self._get_uuid()))
 		if language == 'cpp':
 			option.set('value', 'gnu.cpp.compiler.debugging.level.%s' % (debug_level))
 		else:
 			option.set('value', 'gnu.c.debugging.level.%s' % (debug_level))
 
-		if self.is_shlib and self.is_language(language):
+		if self.is_shlib and self._is_language(language):
 			option = ElementTree.SubElement(compiler, 'option', {'value':'true','valueType':'boolean'})
 			option.set('superClass', 'gnu.%s.compiler.option.misc.pic' % language)
-			option.set('id', '%s.%s' % (option.get('superClass'), self.get_uuid()))
+			option.set('id', '%s.%s' % (option.get('superClass'), self._get_uuid()))
 
-	def add_cc_includes(self, compiler, key, language):
-		if not self.is_language(language):
+	def _add_cc_includes(self, compiler, key, language):
+		if not self._is_language(language):
 			return
 		uses = getattr(self.gen, 'use', [])
 		includes = getattr(self.gen, 'includes', [])
@@ -553,7 +661,7 @@ class CDTProject(Project):
 
 		option = ElementTree.SubElement(compiler, 'option', {'name':'Include paths (-I)', 'valueType':'includePath'})
 		option.set('superClass', 'gnu.%s.compiler.option.include.paths' % (language))
-		option.set('id', '%s.%s' % (option.get('superClass'), self.get_uuid()))
+		option.set('id', '%s.%s' % (option.get('superClass'), self._get_uuid()))
 
 		for include in [str(i).lstrip('./') for i in includes]:
 			listoption = ElementTree.SubElement(option, 'listOptionValue', {'builtIn':'false'})
@@ -566,8 +674,8 @@ class CDTProject(Project):
 				listoption = ElementTree.SubElement(option, 'listOptionValue', {'builtIn':'false'})
 				listoption.set('value', '"${workspace_loc:/%s/%s}"' % (use, include))
 
-	def add_cc_preprocessor(self, compiler, key, language):
-		if not self.is_language(language):
+	def _add_cc_preprocessor(self, compiler, key, language):
+		if not self._is_language(language):
 			return
 		defines = list(self.gen.env.DEFINES)
 		if key == 'debug' and defines.count('NDEBUG'):
@@ -583,13 +691,13 @@ class CDTProject(Project):
 
 		option = ElementTree.SubElement(compiler, 'option', {'name':'Defined symbols (-D)', 'valueType':'definedSymbols'})
 		option.set('superClass', superclass)
-		option.set('id', '%s.%s' % (superclass, self.get_uuid()))
+		option.set('id', '%s.%s' % (superclass, self._get_uuid()))
 
 		for define in defines:
 			listoption = ElementTree.SubElement(option, 'listOptionValue', {'builtIn':'false'})
 			listoption.set('value', define)
 
-	def add_cc_input(self, compiler, key, language):
+	def _add_cc_input(self, compiler, key, language):
 		if not compiler.get('id').count('.%s.' % language):
 			return
 
@@ -602,7 +710,7 @@ class CDTProject(Project):
 			ElementTree.SubElement(inputtype, 'additionalInput', {'kind':'additionalinputdependency', 'paths':'$(USER_OBJS)'})
 			ElementTree.SubElement(inputtype, 'additionalInput', {'kind':'additionalinput', 'paths':'$(LIBS)'})
 
-	def add_linker(self, toolchain, key, language, name):
+	def _add_linker(self, toolchain, key, language, name):
 		if self.is_stlib:
 			superclass = 'cdt.managedbuild.tool.gnu.%s.linker.base' % (language)
 		else:
@@ -610,20 +718,20 @@ class CDTProject(Project):
 
 		linker = ElementTree.SubElement(toolchain, 'tool', {'name':name})
 		linker.set('superClass', superclass)
-		linker.set('id', '%s.%s' % (superclass, self.get_uuid()))
+		linker.set('id', '%s.%s' % (superclass, self._get_uuid()))
 
 		if self.is_shlib:
 			option = ElementTree.SubElement(linker, 'option', {'name':'Shared (-shared)', 'defaultValue':'true', 'valueType':'boolean'})
 			option.set('superClass', 'gnu.%s.link.so.%s.option.shared' % (language, key))
-			option.set('id', '%s.%s' % (option.get('superClass'), self.get_uuid()))
+			option.set('id', '%s.%s' % (option.get('superClass'), self._get_uuid()))
 
-		self.add_linker_libs(linker, key, language)
-		self.add_linker_lib_paths(linker, key, language)
-		self.add_linker_input(linker, key, language)
+		self._add_linker_libs(linker, key, language)
+		self._add_linker_lib_paths(linker, key, language)
+		self._add_linker_input(linker, key, language)
 		return linker
 
-	def add_linker_libs(self, linker, key, language):
-		if not self.is_language(language):
+	def _add_linker_libs(self, linker, key, language):
+		if not self._is_language(language):
 			return
 
 		libs = getattr(self.gen, 'lib', [])
@@ -636,14 +744,14 @@ class CDTProject(Project):
 
 		option = ElementTree.SubElement(linker, 'option', {'name':'Libraries (-l)', 'valueType':'libs'})
 		option.set('superClass', 'gnu.%s.link.option.libs' % (language))
-		option.set('id', '%s.%s' % (option.get('superClass'), self.get_uuid()))
+		option.set('id', '%s.%s' % (option.get('superClass'), self._get_uuid()))
 
 		for lib in libs:
 			listoption = ElementTree.SubElement(option, 'listOptionValue', {'builtIn':'false'})
 			listoption.set('value', lib)
 
-	def add_linker_lib_paths(self, linker, key, language):
-		if not self.is_language(language):
+	def _add_linker_lib_paths(self, linker, key, language):
+		if not self._is_language(language):
 			return
 
 		libs = []
@@ -656,55 +764,66 @@ class CDTProject(Project):
 
 		option = ElementTree.SubElement(linker, 'option', {'name':'Library search path (-L)', 'valueType':'libPaths'})
 		option.set('superClass', 'gnu.%s.link.option.paths' % (language))
-		option.set('id', '%s.%s' % (option.get('superClass'), self.get_uuid()))
+		option.set('id', '%s.%s' % (option.get('superClass'), self._get_uuid()))
 
 		for lib in libs:
 			listoption = ElementTree.SubElement(option, 'listOptionValue', {'builtIn':'false'})
 			listoption.set('value', '"${workspace_loc:/%s/%s}"' % (lib, key.title()))
 
-	def add_linker_input(self, linker, key, language):
-		if not self.is_language(language):
+	def _add_linker_input(self, linker, key, language):
+		if not self._is_language(language):
 			return
 		if self.is_stlib:
 			return
 
 		inputtype = ElementTree.SubElement(linker, 'inputType')
 		inputtype.set('superClass', 'cdt.managedbuild.tool.gnu.%s.linker.input' % (language))
-		inputtype.set('id', '%s.%s' % (inputtype.get('superClass'), self.get_uuid()))
+		inputtype.set('id', '%s.%s' % (inputtype.get('superClass'), self._get_uuid()))
 		ElementTree.SubElement(inputtype, 'additionalInput', {'kind':'additionalinputdependency', 'paths':'$(USER_OBJS)'})
 		ElementTree.SubElement(inputtype, 'additionalInput', {'kind':'additionalinput', 'paths':'$(LIBS)'})
 
-	def is_language(self, language):
+	def _is_language(self, language):
 		if language == 'cpp':
 			language = 'cxx'
 		return language in self.gen.features
 
 
 class WafCDT(CDTProject):
+	'''Special class for exporting *waf* commands to a CDT based *Eclipse* 
+	project. This CDT project only contains special make commands for executing
+	the *waf* commands of the build environment.
+
+	:param bld: a *waf* build instance from the top level *wscript*.
+	:type bld: waflib.Build.BuildContext
+	
+	:param project: Reference to *Eclipse* project (which will export the 
+					*.project* file.
+	:param project: Project
+	'''
 	def __init__(self, bld, project):
 		super(WafCDT, self).__init__(bld, None, None, project)
 		self.comments = ['<?xml version="1.0" encoding="UTF-8" standalone="no"?>','<?fileVersion 4.0.0?>']
 		self.waf = str(os.path.abspath(sys.argv[0])).replace('\\', '/')
 
-	def get_content(self):
+	def _get_content(self):
 		root = ElementTree.fromstring(ECLIPSE_CDT_PROJECT)
 		for module in root.findall('storageModule'):
 			if module.get('moduleId') == 'org.eclipse.cdt.core.settings':
-				self.update_cdt_core_settings(module)
+				self._update_cdt_core_settings(module)
 
 			if module.get('moduleId') == 'cdtBuildSystem':
-				self.update_cdt_buildsystem(module)
+				self._update_cdt_buildsystem(module)
 
 			if module.get('moduleId') == 'scannerConfiguration':
-				self.update_scanner_configuration(module)
+				self._update_scanner_configuration(module)
 
 			if module.get('moduleId') == 'refreshScope':
 				root.remove(module)
 
-		self.add_buildtargets(root)
+		self._add_buildtargets(root)
 		return ElementTree.tostring(root)
 
-	def update_cdt_core_settings(self, module):
+	def _update_cdt_core_settings(self, module):
 		cconfig = ElementTree.fromstring(ECLIPSE_CDT_WAF_CONFIG)
 
 		for extension in cconfig.find('storageModule/extensions').iter('extension'):
@@ -729,16 +848,16 @@ class WafCDT(CDTProject):
 
 		module.append(cconfig)
 
-	def update_cdt_buildsystem(self, module):
+	def _update_cdt_buildsystem(self, module):
 		name = self.exp.appname
 		ElementTree.SubElement(module, 'project', {'id':'%s.null.1' % name, 'name': name})
 
-	def update_scanner_configuration(self, module):
+	def _update_scanner_configuration(self, module):
 		scanner = ElementTree.SubElement(module, 'scannerConfigBuildInfo')
 		scanner.set('instanceId', 'org.eclipse.cdt.core.default.config.1')
 		ElementTree.SubElement(scanner, 'autodiscovery', {'enabled':'true', 'problemReportingEnabled':'true', 'selectedProfileId':''})
 
-	def add_buildtargets(self, root):
+	def _add_buildtargets(self, root):
 		targets = {
 			'configure' : 'configure',
 			'dist'		: 'dist',
@@ -763,6 +882,19 @@ class WafCDT(CDTProject):
 
 
 class CDTLaunch(Project):
+	'''Class for exporting a *CDT* launcher for C/C++ programs.
+
+	:param bld: a *waf* build instance from the top level *wscript*.
+	:type bld: waflib.Build.BuildContext
+	
+	:param gen: The C/C++ task generator for which the launcher should be 
+				created.
+	:type gen: waflib.Task.TaskGen
+
+	:param uuid: Identifier from the *Eclipse* *CDT* project of the program
+				to be started by this launcher
+	:type uuid: str
+	'''
 	def __init__(self, bld, gen, uuid):
 		super(CDTLaunch, self).__init__(bld, gen)
 		self.comments = ['<?xml version="1.0" encoding="UTF-8" standalone="no"?>']
@@ -770,13 +902,13 @@ class CDTLaunch(Project):
 		self.build_dir = 'Release'
 		self.build_config_id = 'cdt.managedbuild.config.gnu.exe.release.%s' % uuid
 
-	def get_fname(self):
+	def _get_fname(self):
 		name = '%s(release).launch' % self.gen.get_name()
 		if self.gen:
 			name = '%s/%s' % (self.gen.path.relpath(), name)
 		return name.replace('\\', '/')
 
-	def get_content(self):
+	def _get_content(self):
 		root = ElementTree.fromstring(self.template)
 		for attrib in root.iter('stringAttribute'):
 			if attrib.get('key') == 'org.eclipse.cdt.launch.PROGRAM_NAME':
@@ -788,7 +920,7 @@ class CDTLaunch(Project):
 			if attrib.get('key') == 'org.eclipse.cdt.launch.WORKING_DIRECTORY':
 				sdir = str(self.bld.env.BINDIR).replace('\\', '/')
 				rdir = self.bld.workspace_loc
-				if rdir and is_subdir(sdir, rdir):
+				if rdir and _is_subdir(sdir, rdir):
 					sdir = re.sub('\A%s' % rdir, '${workspace_loc}', sdir)
 				attrib.set('value', sdir)
 
@@ -807,13 +939,26 @@ class CDTLaunch(Project):
 
 
 class CDTLaunchDebug(CDTLaunch):
+	'''Class for exporting a *CDT* *debug* launcher for C/C++ programs.
+
+	:param bld: a *waf* build instance from the top level *wscript*.
+	:type bld: waflib.Build.BuildContext
+
+	:param gen: The C/C++ task generator for which the launcher should be 
+				created.
+	:type gen: waflib.Task.TaskGen
+
+	:param uuid: Identifier from the *Eclipse* *CDT* project of the program
+				to be started by this launcher
+	:type uuid: str
+	'''
 	def __init__(self, bld, gen, uuid):
 		super(CDTLaunchDebug, self).__init__(bld, gen, uuid)
 		self.template = ECLIPSE_CDT_LAUNCH_DEBUG
 		self.build_dir = 'Debug'
 		self.build_config_id = 'cdt.managedbuild.config.gnu.exe.debug.%s' % uuid
 
-	def get_fname(self):
+	def _get_fname(self):
 		name = '%s(debug).launch' % self.gen.get_name()
 		if self.gen:
 			name = '%s/%s' % (self.gen.path.relpath(), name)

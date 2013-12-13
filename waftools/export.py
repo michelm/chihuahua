@@ -2,6 +2,21 @@
 # -*- encoding: utf-8 -*-
 # Michel Mooij, michel.mooij7@gmail.com
 
+'''
+Summary
+-------
+*TODO*
+
+Description
+-----------
+*TODO*
+
+Usage
+-----
+*TODO*
+
+'''
+
 import os
 from waflib import Build, Logs, Scripting, Task, Context
 import makefile
