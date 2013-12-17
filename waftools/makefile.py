@@ -123,13 +123,14 @@ class MakeRoot(Make):
 		return '%s/Makefile' % (bld.path.relpath().replace('\\', '/'))
 
 	def _get_content(self):
-		prefix = os.path.abspath(self.exp.prefix)
-		if prefix.startswith(os.getcwd()):
-			prefix = '$(CURDIR)%s' % prefix[len(os.getcwd()):]
+		cwd = str(os.getcwd()).replace('\\', '/')
+		prefix = str(os.path.abspath(self.exp.prefix)).replace('\\', '/')
+		if prefix.startswith(cwd):
+			prefix = '$(CURDIR)%s' % prefix[len(cwd):]
 
-		out = os.path.abspath(self.exp.out)
-		if out.startswith(os.getcwd()):
-			out = '$(TOP)%s' % out[len(os.getcwd()):]
+		out = str(os.path.abspath(self.exp.out)).replace('\\', '/')
+		if out.startswith(cwd):
+			out = '$(TOP)%s' % out[len(cwd):]
 		if self.bld.variant:
 			out = '%s/%s' % (out, self.bld.variant)
 		

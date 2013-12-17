@@ -20,6 +20,7 @@ Usage
 import sys
 import os
 import re
+import codecs
 import xml.etree.ElementTree as ElementTree
 from xml.dom import minidom
 import waflib
@@ -127,7 +128,7 @@ def _scan_project_locations(bld):
 		name = gen.get_name()
 		location = str(gen.path.relpath()).replace('\\', '/')
 		
-		if locations.has_key(location):
+		if location in locations:
 			anomalies[name] = location
 		else:
 			locations[location] = name
@@ -477,7 +478,8 @@ class CDTProject(Project):
 		return ElementTree.tostring(root)
 
 	def _get_uuid(self):
-		return int(os.urandom(4).encode('hex'), 16)
+		uuid = codecs.encode(os.urandom(4), 'hex_codec')
+		return int(uuid, 16)
 
 	def _update_buildsystem(self, module):
 		attr = {

@@ -375,9 +375,12 @@ class Cppcheck(object):
 
 	def _html_clean(self, content):
 		h = '<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">'
-		lines = [l for l in content.splitlines() if len(l.strip())]
+		if sys.version_info[0] == 2:
+			lines = [l for l in content.splitlines()]
+		else:
+			lines = [l.decode('utf-8') for l in content.splitlines()]
 		lines.insert(0, h)
-		return '\n'.join(lines)
+		return '\n'.join([l for l in lines if len(l.strip())])
 	
 	def _create_css_file(self, name):
 		css = str(CPPCHECK_CSS_FILE)
@@ -542,7 +545,9 @@ class CppcheckGen(Cppcheck):
 		# clean up the indentation of the XML tree
 		s = ElementTree.tostring(root)
 		s = minidom.parseString(s).toprettyxml(indent="\t", encoding="utf-8")
-		content = '\n'.join([l for l in s.splitlines() if len(l.strip())])
+
+		lines = [str(l) for l in s.splitlines()]
+		content = '\n'.join([l for l in lines if len(l.strip())])
 
 		gen = self.taskgen
 		name = '%s/%s.xml' % (gen.path.relpath(), gen.get_name())
@@ -604,14 +609,14 @@ class CppcheckGen(Cppcheck):
 		defects = [d for d in defects if getattr(d, 'file', None)]
 		for defect in defects:
 			name = defect.file
-			if not sources.has_key(name):
+			if not name in sources:
 				sources[name] = [defect]
 			else:
 				sources[name].append(defect)
 
 		gen = self.taskgen
 		files = {}
-		names = sources.keys()
+		names = list(sources.copy().keys())
 
 		for i in range(0,len(names)):
 			name = names[i]
@@ -664,7 +669,15 @@ class CppcheckGen(Cppcheck):
 				formatter = CppcheckHtmlFormatter(linenos=True, style='colorful', hl_lines=hl_lines, lineanchors='line')
 				formatter.errors = [e for e in errors if getattr(e, 'line')]
 				css_style_defs = formatter.get_style_defs('.highlight')
-				lexer = pygments.lexers.guess_lexer_for_filename(source, "")
+				
+				# TODO: TEMP fix for pygments when using python3
+				# only support C/C++ highlighting
+				if sys.version_info[0] > 2:
+					from pygments.lexers import CLexer
+					lexer = CLexer()
+				else:
+					lexer = pygments.lexers.guess_lexer_for_filename(source, "")
+				
 				s = pygments.highlight(srcnode.read(), lexer, formatter)
 				table = ElementTree.fromstring(s)
 				content.append(table)
@@ -729,163 +742,163 @@ class CppcheckHtmlFormatter(pygments.formatters.HtmlFormatter):
 CPPCHECK_HTML_FILE = \
 """<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd" [<!ENTITY nbsp "&#160;">]>
 <html>
-	<head>
-		<title>cppcheck - report - XXX</title>
-		<link href="style.css" rel="stylesheet" type="text/css" />
-		<style type="text/css" />
-	</head>
-	<body class="body">
-		<div id="page-header">&nbsp;</div>
-		<div id="page">
-			<div id="header">
-				<h1>cppcheck report - XXX</h1>
-			</div>
-			<div id="menu">
-				<a href="index.html">Home</a>
-			</div>
-			<div id="content">
-			</div>
-			<div id="footer">
-				<div>cppcheck - a tool for static C/C++ code analysis</div>
-				<div>
-				Internet: <a href="http://cppcheck.sourceforge.net">http://cppcheck.sourceforge.net</a><br/>
-				Forum: <a href="http://apps.sourceforge.net/phpbb/cppcheck/">http://apps.sourceforge.net/phpbb/cppcheck/</a><br/>
-				IRC: #cppcheck at irc.freenode.net
-				</div>
-				&nbsp;
-			</div>
-			&nbsp;
-		</div>
-		<div id="page-footer">&nbsp;</div>
-	</body>
+    <head>
+        <title>cppcheck - report - XXX</title>
+        <link href="style.css" rel="stylesheet" type="text/css" />
+        <style type="text/css" />
+    </head>
+    <body class="body">
+        <div id="page-header">&nbsp;</div>
+        <div id="page">
+            <div id="header">
+                <h1>cppcheck report - XXX</h1>
+            </div>
+            <div id="menu">
+                <a href="index.html">Home</a>
+            </div>
+            <div id="content">
+            </div>
+            <div id="footer">
+                <div>cppcheck - a tool for static C/C++ code analysis</div>
+                <div>
+                Internet: <a href="http://cppcheck.sourceforge.net">http://cppcheck.sourceforge.net</a><br/>
+                Forum: <a href="http://apps.sourceforge.net/phpbb/cppcheck/">http://apps.sourceforge.net/phpbb/cppcheck/</a><br/>
+                IRC: #cppcheck at irc.freenode.net
+                </div>
+                &nbsp;
+            </div>
+            &nbsp;
+        </div>
+        <div id="page-footer">&nbsp;</div>
+    </body>
 </html>
 """
 
 
 CPPCHECK_HTML_TABLE = \
 """<table>
-	<tr>
-		<th>Line</th>
-		<th>Id</th>
-		<th>Severity</th>
-		<th>Message</th>
-	</tr>
+    <tr>
+        <th>Line</th>
+        <th>Id</th>
+        <th>Severity</th>
+        <th>Message</th>
+    </tr>
 </table>
 """
 
 
 CPPCHECK_HTML_INDEX_TABLE = \
 """<table>
-	<tr>
-		<th>Component</th>
-		<th>Severity</th>
-	</tr>
+    <tr>
+        <th>Component</th>
+        <th>Severity</th>
+    </tr>
 </table>
 """
 
 
 CPPCHECK_CSS_FILE = """
 body.body {
-	font-family: Arial;
-	font-size: 13px;
-	background-color: black;
-	padding: 0px;
-	margin: 0px;
+    font-family: Arial;
+    font-size: 13px;
+    background-color: black;
+    padding: 0px;
+    margin: 0px;
 }
 
 .error {
-	font-family: Arial;
-	font-size: 13px;
-	background-color: #ffb7b7;
-	padding: 0px;
-	margin: 0px;
+    font-family: Arial;
+    font-size: 13px;
+    background-color: #ffb7b7;
+    padding: 0px;
+    margin: 0px;
 }
 
 th, td {
-	min-width: 100px;
-	text-align: left;
+    min-width: 100px;
+    text-align: left;
 }
 
 #page-header {
-	clear: both;
-	width: 1200px;
-	margin: 20px auto 0px auto;
-	height: 10px;
-	border-bottom-width: 2px;
-	border-bottom-style: solid;
-	border-bottom-color: #aaaaaa;
+    clear: both;
+    width: 1200px;
+    margin: 20px auto 0px auto;
+    height: 10px;
+    border-bottom-width: 2px;
+    border-bottom-style: solid;
+    border-bottom-color: #aaaaaa;
 }
 
 #page {
-	width: 1160px;
-	margin: auto;
-	border-left-width: 2px;
-	border-left-style: solid;
-	border-left-color: #aaaaaa;
-	border-right-width: 2px;
-	border-right-style: solid;
-	border-right-color: #aaaaaa;
-	background-color: White;
-	padding: 20px;
+    width: 1160px;
+    margin: auto;
+    border-left-width: 2px;
+    border-left-style: solid;
+    border-left-color: #aaaaaa;
+    border-right-width: 2px;
+    border-right-style: solid;
+    border-right-color: #aaaaaa;
+    background-color: White;
+    padding: 20px;
 }
 
 #page-footer {
-	clear: both;
-	width: 1200px;
-	margin: auto;
-	height: 10px;
-	border-top-width: 2px;
-	border-top-style: solid;
-	border-top-color: #aaaaaa;
+    clear: both;
+    width: 1200px;
+    margin: auto;
+    height: 10px;
+    border-top-width: 2px;
+    border-top-style: solid;
+    border-top-color: #aaaaaa;
 }
 
 #header {
-	width: 100%;
-	height: 70px;
-	background-image: url(logo.png);
-	background-repeat: no-repeat;
-	background-position: left top;
-	border-bottom-style: solid;
-	border-bottom-width: thin;
-	border-bottom-color: #aaaaaa;
+    width: 100%;
+    height: 70px;
+    background-image: url(logo.png);
+    background-repeat: no-repeat;
+    background-position: left top;
+    border-bottom-style: solid;
+    border-bottom-width: thin;
+    border-bottom-color: #aaaaaa;
 }
 
 #menu {
-	margin-top: 5px;
-	text-align: left;
-	float: left;
-	width: 100px;
-	height: 300px;
+    margin-top: 5px;
+    text-align: left;
+    float: left;
+    width: 100px;
+    height: 300px;
 }
 
 #menu > a {
-	margin-left: 10px;
-	display: block;
+    margin-left: 10px;
+    display: block;
 }
 
 #content {
-	float: left;
-	width: 1020px;
-	margin: 5px;
-	padding: 0px 10px 10px 10px;
-	border-left-style: solid;
-	border-left-width: thin;
-	border-left-color: #aaaaaa;
+    float: left;
+    width: 1020px;
+    margin: 5px;
+    padding: 0px 10px 10px 10px;
+    border-left-style: solid;
+    border-left-width: thin;
+    border-left-color: #aaaaaa;
 }
 
 #footer {
-	padding-bottom: 5px;
-	padding-top: 5px;
-	border-top-style: solid;
-	border-top-width: thin;
-	border-top-color: #aaaaaa;
-	clear: both;
-	font-size: 10px;
+    padding-bottom: 5px;
+    padding-top: 5px;
+    border-top-style: solid;
+    border-top-width: thin;
+    border-top-color: #aaaaaa;
+    clear: both;
+    font-size: 10px;
 }
 
 #footer > div {
-	float: left;
-	width: 33%;
+    float: left;
+    width: 33%;
 }
 
 """

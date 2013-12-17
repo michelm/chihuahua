@@ -19,9 +19,10 @@ Usage
 
 import os
 from waflib import Build, Logs, Scripting, Task, Context
-import makefile
-import codeblocks
-import eclipse
+from waftools import makefile
+from waftools import codeblocks
+from waftools import eclipse
+from waftools import cmake
 
 VERSION='0.0.2'
 
@@ -37,6 +38,7 @@ def options(opt):
 	codeblocks.options(opt)
 	eclipse.options(opt)
 	makefile.options(opt)
+	cmake.options(opt)
 
 
 def configure(conf):
@@ -49,6 +51,7 @@ def configure(conf):
 	codeblocks.configure(conf)
 	eclipse.configure(conf)
 	makefile.configure(conf)
+	cmake.configure(conf)
 
 
 class ExportContext(Build.BuildContext):
@@ -127,7 +130,7 @@ def task_process(self):
 	self.cmd = [arg.replace('\\', '/') for arg in self.cmd]
 	gen = self.generator
 	bld = self.generator.bld
-	if not bld.components.has_key(gen):
+	if gen not in bld.components:
 		bld.components[gen] = [self]
 	else:
 		bld.components[gen].append(self)
@@ -140,10 +143,12 @@ def build_postfun(self):
 		codeblocks.cleanup(self)
 		eclipse.cleanup(self)
 		makefile.cleanup(self)
+		cmake.cleanup(self)
 
 	else:
 		codeblocks.export(self)
 		eclipse.export(self)
 		makefile.export(self)
+		cmake.export(self)
 
 

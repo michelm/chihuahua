@@ -13,16 +13,14 @@ prefix = 'output'
 
 VERSION = '0.0.2-beta'
 APPNAME = 'chihuahua'
-POKY = {
-	'arm5':
-	'/opt/poky/1.4.2/environment-setup-armv5te-poky-linux-gnueabi',
 
-	'arm7':
-	'/opt/poky/1.4.2/environment-setup-armv7a-vfp-neon-poky-linux-gnueabi'
-}
+POKY = {}
+if 'linux' in sys.platform:
+	POKY['arm5'] = '/opt/poky/1.4.2/environment-setup-armv5te-poky-linux-gnueabi'
+	POKY['arm7'] = '/opt/poky/1.4.2/environment-setup-armv7a-vfp-neon-poky-linux-gnueabi'
 
 VARIANTS = POKY.keys()
-if sys.platform != 'win32':
+if 'linux' in sys.platform:
 	VARIANTS.append('win32')
 
 CONTEXTS = (
@@ -63,9 +61,10 @@ def configure(conf):
 	conf.check_waf_version(mini='1.7.0')
 	prefix = conf.env.PREFIX
 
-	for key, value in POKY.items():
-		_create_poky_env(conf, prefix, key, value)
-	_create_mingw_env(conf, prefix)
+	if 'linux' in sys.platform:
+		for key, value in POKY.items():
+			_create_poky_env(conf, prefix, key, value)
+		_create_mingw_env(conf, prefix)
 
 	conf.setenv('')
 	conf.load('compiler_c')

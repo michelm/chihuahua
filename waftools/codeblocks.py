@@ -322,7 +322,7 @@ class CBWorkspace(CodeBlocks):
 		workspace = root.find('Workspace')
 		workspace.set('title', self.exp.appname)
 
-		for name in sorted(self.projects.iterkeys()):
+		for name in sorted(self.projects.keys()):
 			(fname, deps) = self.projects[name]
 			project = ElementTree.SubElement(workspace, 'Project', attrib={'filename':fname})
 			for dep in deps:
@@ -569,7 +569,11 @@ class CBProject(CodeBlocks):
 	def _get_compiler_defines(self):
 		gen = self.gen
 		defines = self._get_genlist(gen, 'defines') + gen.bld.env.DEFINES
-		return [d.replace('"', '\\\\"') for d in defines]
+		if 'win32' in sys.platform:
+			defines = [d.replace('"', '\\"') for d in defines]
+		else:
+			defines = [d.replace('"', '\\\\"') for d in defines]
+		return defines
 
 	def _get_link_options(self):
 		bld = self.bld
@@ -644,6 +648,15 @@ class WafCBProject(CodeBlocks):
 			root = ElementTree.fromstring(CODEBLOCKS_PROJECT)
 		return root
 
+	def _get_cmd(self, name):
+		'''Returns a string containing command and arguments to be executed.
+		'''
+		if 'win32' in sys.platform:
+			cmd = 'python %s %s' % (str(sys.argv[0]).replace('\\', '/'), name)
+		else:
+			cmd = 'waf %s' % name
+		return cmd
+		
 	def _init_target(self, target, name):
 		'''Initializes a WAF build target.'''
 		target.set('title', name)
@@ -657,7 +670,7 @@ class WafCBProject(CodeBlocks):
 				option.set('compiler', 'gcc')
 
 		cmd = target.find('ExtraCommands/Add')
-		cmd.set('before', 'waf %s' % (name))
+		cmd.set('before', self._get_cmd(name))
 		return target
 
 	def _add_target(self, project, name):
@@ -665,13 +678,11 @@ class WafCBProject(CodeBlocks):
 
 		Will only be added if target does not exist yet.
 		'''
-		build = project.find('Build')
-		cmd = 'waf %s' % name
-
+		build = project.find('Build')			
 		for target in build.iter('Target'):
 			if target.get('title') == 'XXX':
 				commands = ElementTree.SubElement(target, 'ExtraCommands')
-				ElementTree.SubElement(commands, 'Add', {'before': cmd})
+				ElementTree.SubElement(commands, 'Add', {'before': 'XXX'})
 				return self._init_target(target, name)
 
 			if target.get('title') == name:
