@@ -108,18 +108,21 @@ class CMake(object):
 	def add_tgen(self, tgen):
 		self.tgens.append(tgen)
 
-	def get_fname(self):
+	def get_location(self):
+		return self.location
+
+	def _get_fname(self):
 		name = '%s/CMakeLists.txt' % (self.location)
 		return name
 		
 	def _find_node(self):
-		name = self.get_fname()
+		name = self._get_fname()
 		if not name:
 			return None    
 		return self.bld.srcnode.find_node(name)
 
 	def _make_node(self):
-		name = self.get_fname()
+		name = self._get_fname()
 		if not name:
 			return None    
 		return self.bld.srcnode.make_node(name)
@@ -131,44 +134,46 @@ class CMake(object):
 		if is_top:
 			content += 'cmake_minimum_required (VERSION 2.6)\n'
 			content += 'project (%s)\n' % (self.exp.appname)
+			content += '\n'
 
 			env = self.bld.env			
 			defines = env.DEFINES
 			if len(defines):
-				content += '\n'
 				content += 'add_definitions(-D%s)\n' % (' -D'.join(defines))
+				content += '\n'
 
 			flags = env.CFLAGS
 			if len(flags):
-				content += '\n'
-				content += 'SET(CMAKE_C_FLAGS "%s")\n' % (' '.join(flags))
+				content += 'set(CMAKE_C_FLAGS "%s")\n' % (' '.join(flags))
 
 			flags = env.CXXFLAGS
 			if len(flags):
-				content += '\n'
-				content += 'SET(CMAKE_CXX_FLAGS "%s")\n' % (' '.join(flags))
-				
+				content += 'set(CMAKE_CXX_FLAGS "%s")\n' % (' '.join(flags))
+		
+		if len(self.tgens):
 			content += '\n'
-				
-		for tgen in self.tgens:
-			content += self._get_tgen_content(tgen)
-			
-		for cmake in self.cmakes:
-			content += 'include(${CMAKE_CURRENT_SOURCE_DIR}/%s)\n' % (cmake.get_fname())
+			for tgen in self.tgens:
+				content += self._get_tgen_content(tgen)
+
+		if len(self.cmakes):
+			content += '\n'
+			for cmake in self.cmakes:
+				content += 'add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/%s)\n' % (cmake.get_location())
+
 		return content
 
 	def _get_tgen_content(self, tgen):
 		content = ''
 		name = tgen.get_name()
 
-		content += 'SET(%s_SOURCES' % (name)
+		content += 'set(%s_SOURCES' % (name)
 		for src in tgen.source:
 			content += '\n    %s' % src.path_from(tgen.path)
 		content += ')\n\n'
 		
 		includes = self._get_genlist(tgen, 'includes')
 		if len(includes):
-			content += 'SET(%s_INCLUDES' % (name)
+			content += 'set(%s_INCLUDES' % (name)
 			for include in includes:
 				content += '\n    %s' % include
 			content += ')\n'
@@ -180,12 +185,6 @@ class CMake(object):
 			content += 'add_definitions(-D%s)\n' % (' -D'.join(defines))
 			content += '\n'
 		
-		uses = getattr(tgen, 'use', None)
-		if uses:
-			for use in uses:
-				content += 'TARGET_LINK_LIBRARIES(%s %s)\n' % (name, use)
-			content += '\n'
-
 		if set(('cshlib', 'cxxshlib')) & set(tgen.features):
 			content += 'add_library(%s SHARED ${%s_SOURCES})\n' % (name, name)
 			
@@ -194,7 +193,14 @@ class CMake(object):
 	
 		else:
 			content += 'add_executable(%s ${%s_SOURCES})\n' % (name, name)
-			
+
+		libs = getattr(tgen, 'use', []) + getattr(tgen, 'lib', [])
+		if len(libs):
+			content += '\n'
+			for lib in libs:
+				content += 'target_link_libraries(%s %s)\n' % (name, lib)
+			content += '\n'
+
 		return content
 
 	def _get_genlist(self, tgen, name):
