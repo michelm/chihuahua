@@ -54,6 +54,52 @@ def configure(conf):
 	cmake.configure(conf)
 
 
+def task_process(task):
+	'''Collects information of build tasks duing the build process.
+
+	:param task: A concrete task (e.g. compilation of a C source file
+				that is bing processed.
+	:type task: waflib.Task.TaskBase
+	'''
+	if not hasattr(task, 'cmd'):
+		return
+	task.cmd = [arg.replace('\\', '/') for arg in task.cmd]
+	gen = task.generator
+	bld = task.generator.bld
+	if gen not in bld.components:
+		bld.components[gen] = [task]
+	else:
+		bld.components[gen].append(task)
+
+
+def build_postfun(bld):
+	'''Will be called by the build environment after all tasks have been
+	processed.
+
+	Converts all collected information from task, task generator and build
+	context and converts most used info to an Export class. And finally 
+	triggers the actual export modules to start the export process on 
+	available C/C++ build tasks.
+	
+	:param task: A concrete task (e.g. compilation of a C source file
+				that is bing processed.
+	:type task: waflib.Task.TaskBase
+	'''
+	bld.export = Export(bld)
+
+	if bld.options.cleanup:
+		codeblocks.cleanup(bld)
+		eclipse.cleanup(bld)
+		makefile.cleanup(bld)
+		cmake.cleanup(bld)
+
+	else:
+		codeblocks.export(bld)
+		eclipse.export(bld)
+		makefile.export(bld)
+		cmake.export(bld)
+
+
 class ExportContext(Build.BuildContext):
 	'''Exports and converts tasks to external formats (e.g. makefiles, 
 	codeblocks, msdev, ...).
@@ -62,6 +108,18 @@ class ExportContext(Build.BuildContext):
 	cmd = 'export'
 
 	def execute(self, *k, **kw):
+		'''Executes the *export* command.
+
+		The export command installs a special task process method
+		which enables the collection of tasks being executed (i.e.
+		the actual command line being executed). Furthermore it 
+		installs a special *post_process* methods that will be called
+		when the build has been completed (see build_postfun).
+
+		Note that before executing the *export* command, a *clean* command
+		will forced by the *export* command. This is needed in order to
+		(re)start the task processing sequence.
+		'''
 		self.components = {}
 
 		old_exec = Task.TaskBase.exec_command
@@ -75,16 +133,16 @@ class ExportContext(Build.BuildContext):
 		Task.TaskBase.exec_command = exec_command
 
 		old_process = Task.TaskBase.process
-		def process(self):
-			old_process(self)
-			task_process(self)
+		def process(task):
+			old_process(task)
+			task_process(task)
 		Task.TaskBase.process = process
 
-		def postfun(self):
-			if not len(self.components):
+		def postfun(bld):
+			if not len(bld.components):
 				Logs.warn('export failed: no targets found!')
 			else:
-				build_postfun(self)
+				build_postfun(bld)
 		super(ExportContext, self).add_post_fun(postfun)
 
 		Scripting.run_command('clean')
@@ -92,6 +150,12 @@ class ExportContext(Build.BuildContext):
 
 
 class Export(object):
+	'''Class that collects and converts information from the build 
+	context (e.g. convert back- into forward slashes).
+
+	:param bld: a *waf* build instance from the top level *wscript*.
+	:type bld: waflib.Build.BuildContext
+	'''
 	def __init__(self, bld):
 		self.version = VERSION
 		self.wafversion = Context.WAFVERSION
@@ -122,33 +186,5 @@ class Export(object):
 			if isinstance(val, str):
 				val = val.replace('\\', '/')
 				setattr(self, attr, val)
-
-
-def task_process(self):
-	if not hasattr(self, 'cmd'):
-		return
-	self.cmd = [arg.replace('\\', '/') for arg in self.cmd]
-	gen = self.generator
-	bld = self.generator.bld
-	if gen not in bld.components:
-		bld.components[gen] = [self]
-	else:
-		bld.components[gen].append(self)
-
-
-def build_postfun(self):
-	self.export = Export(self)
-
-	if self.options.cleanup:
-		codeblocks.cleanup(self)
-		eclipse.cleanup(self)
-		makefile.cleanup(self)
-		cmake.cleanup(self)
-
-	else:
-		codeblocks.export(self)
-		eclipse.export(self)
-		makefile.export(self)
-		cmake.export(self)
 
 

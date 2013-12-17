@@ -1,6 +1,14 @@
 waftools Package
 ================
 
+:mod:`cmake` Module
+------------------------
+
+.. automodule:: waftools.cmake
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 :mod:`codeblocks` Module
 ------------------------
 
