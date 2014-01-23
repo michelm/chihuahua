@@ -1,0 +1,111 @@
+#!/usr/bin/sh
+
+TOP=`pwd`
+DOWNLOADS=$TOP/downloads
+PREFIX=~/.local
+
+RELEASE=`cat /etc/issue`
+VERSION=1.7.15
+WAFBOOK=book_17
+
+PYTHON=python
+PYVER=`$PYTHON -c "import sys; print('%i.%i' % sys.version_info[0:2])"`
+
+#====================================================================
+# install (using package manager)
+#====================================================================
+if [[ $RELEASE == Fedora* ]]
+then
+	sudo yum -y groupinstall "C Development Tools and Libraries"
+	sudo yum -y install \
+		wget git meld codeblocks codeblocks-libs \
+		python-pygments cppcheck
+
+else
+	echo "System \'$RELEASE\' not supported (yet)!"
+	exit 1
+fi
+
+#====================================================================
+# create installation paths
+#====================================================================
+if [ ! -d $PREFIX/bin ]
+then
+	mkdir -vp $PREFIX/bin
+fi
+
+if [ ! -d $PREFIX/share/waf ]
+then
+	mkdir -vp $PREFIX/share/waf
+fi
+
+if [ ! -d $PREFIX/share/waf/doc ]
+then
+	mkdir -vp $PREFIX/share/waf/doc
+fi
+
+if [ ! -d $PREFIX/lib/python-$PYVER/site-packages ]
+then
+	mkdir -vp $PREFIX/lib/python-$PYVER/site-packages
+fi
+
+#====================================================================
+# WAF: download and extract package
+#====================================================================
+if [ ! -d $DOWNLOADS ]
+then
+	mkdir -vp $DOWNLOADS
+fi
+cd $DOWNLOADS
+
+if [ ! -e waf.pdf ]
+then
+	wget http://docs.waf.googlecode.com/git/$WAFBOOK/waf.pdf
+fi
+
+if [ ! -e waf-$VERSION.tar.bz2 ]
+then
+	wget http://waf.googlecode.com/files/waf-$VERSION.tar.bz2
+fi
+
+tar xvf waf-$VERSION.tar.bz2
+
+#====================================================================
+# WAF: configure, build and install
+#====================================================================
+cd $DOWNLOADS/waf-$VERSION
+$PYTHON ./waf-light configure
+$PYTHON ./waf-light build
+
+cp -v ./waf $PREFIX/bin
+cp -vR ./waflib $PREFIX/lib/python$PYVER/site-packages
+cp -vR ./demos $PREFIX/share/waf
+cp -vR ./playground $PREFIX/share/waf
+
+chmod -v 777 $PREFIX/bin/waf
+
+rm -rf $DOWNLOADS/waf-$VERSION
+
+#====================================================================
+# CWW: install python modules
+#====================================================================
+cd $TOP
+$PYTHON setup.py install --prefix=$PREFIX --record .files_waftools
+
+#====================================================================
+# WAF: install wafbook
+#====================================================================
+cp -v $DOWNLOADS/waf.pdf $PREFIX/share/waf/doc
+
+#====================================================================
+# WAF: update path
+#====================================================================
+if [[ ! $PATH == *$PREFIX/bin* ]]
+then
+	echo -e "export PATH=\$PATH:$PREFIX/bin" >> ~/.bashrc
+	source ~/.bashrc
+	exec /bin/bash
+fi
+
+
+
