@@ -159,19 +159,38 @@ class Export(object):
 	def __init__(self, bld):
 		self.version = VERSION
 		self.wafversion = Context.WAFVERSION
-		self.appname = getattr(Context.g_module, Context.APPNAME)
-		self.appversion = getattr(Context.g_module, Context.VERSION)
-		self.prefix = bld.env.PREFIX
-		self.top = os.path.abspath(getattr(Context.g_module, Context.TOP))
-		self.out = os.path.abspath(getattr(Context.g_module, Context.OUT))
+		try:
+			self.appname = getattr(Context.g_module, Context.APPNAME)
+		except AttributeError:
+			self.appname = os.path.basename(bld.path.abspath())
+		try:
+			self.appversion = getattr(Context.g_module, Context.VERSION)
+		except AttributeError:
+			self.appversion = ""
+		self.prefix = bld.env.PREFIX		
+		try:
+			self.top = os.path.abspath(getattr(Context.g_module, Context.TOP))
+		except AttributeError:
+			self.top = str(bld.path.abspath())
+		try:
+			self.out = os.path.abspath(getattr(Context.g_module, Context.OUT))
+		except AttributeError:
+			self.out = os.sep.join([self.top, 'build'])
+
 		self.bindir = bld.env.BINDIR
 		self.libdir = bld.env.LIBDIR
 		ar = bld.env.AR
 		if isinstance(ar, list):
 			ar = ar[0]
 		self.ar = ar
-		self.cc = bld.env.CC[0]
-		self.cxx = bld.env.CXX[0]
+		try:
+			self.cc = bld.env.CC[0]
+		except IndexError:
+			self.cc = 'gcc'
+		try:
+			self.cxx = bld.env.CXX[0]
+		except IndexError:
+			self.cxx = 'g++'
 		self.rpath = ' '.join(bld.env.RPATH)
 		self.cflags = ' '.join(bld.env.CFLAGS)
 		self.cxxflags = ' '.join(bld.env.CXXFLAGS)
