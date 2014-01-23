@@ -338,8 +338,15 @@ class Cppcheck(object):
 		# save the CSS file for the top page of problem report
 		self._create_css_file('style.css')
 
-		name = getattr(Context.g_module, Context.APPNAME)
-		version = getattr(Context.g_module, Context.VERSION)
+		try:
+			name = getattr(Context.g_module, Context.APPNAME)
+		except AttributeError:
+			name = os.path.basename(self.bld.path.abspath())
+
+		try:
+			version = getattr(Context.g_module, Context.VERSION)
+		except AttributeError:
+			version = ""
 
 		root = ElementTree.fromstring(CPPCHECK_HTML_FILE)
 		title = root.find('head/title')
@@ -564,7 +571,7 @@ class CppcheckGen(Cppcheck):
 			
 			for location in error.findall('location'):
 				defect.file = location.get('file')
-				defect.line = str(int(location.get('line')) - 1)
+				defect.line = str(int(location.get('line')))
 			defects.append(defect)
 		return defects
 
