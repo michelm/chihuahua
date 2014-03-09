@@ -5,8 +5,8 @@
 import os
 import sys
 from waflib.Build import BuildContext, CleanContext, InstallContext, UninstallContext
-from waftools.export import ExportContext
 import waftools
+from waftools.export import ExportContext
 
 top = '.'
 out = 'build'
@@ -29,7 +29,6 @@ CONTEXTS = (
 	InstallContext, UninstallContext, 
 	ExportContext
 )
-	
 
 def options(opt):
 	opt.add_option('--prefix', 
