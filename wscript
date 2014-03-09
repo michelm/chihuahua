@@ -6,6 +6,7 @@ import os
 import sys
 from waflib.Build import BuildContext, CleanContext, InstallContext, UninstallContext
 from waftools.export import ExportContext
+import waftools
 
 top = '.'
 out = 'build'
@@ -53,8 +54,8 @@ def options(opt):
 		action='store_true', 
 		help='Build with debug information.')
 
-	opt.load('cppcheck', tooldir='./waftools')
-	opt.load('export', tooldir='./waftools')
+	opt.load('cppcheck', tooldir=os.path.dirname(waftools.__file__))
+	opt.load('export', tooldir=os.path.dirname(waftools.__file__))
 
 
 def configure(conf):
