@@ -14,7 +14,7 @@ Var /GLOBAL switch_overwrite
 !include "plugins\MoveFileFolder.nsh"
 
 Name                    "waf-${VERSION}"
-OutFile                 "waf-${VERSION}-win.amd64-setup.exe"
+OutFile                 "waf-${VERSION}-setup.exe"
 InstallDir              "$PROGRAMFILES\waf"
 InstallDirRegKey        HKCU "${REGKEY}" ""
 RequestExecutionLevel   admin
@@ -32,7 +32,7 @@ CRCCheck                On
 !define MUI_BRANDINGTEXT                        ""
 !define MUI_ICON                                "install.ico"
 !define MUI_UNICON                              "uninstall.ico"
-!define MUI_FINISHPAGE_LINK						"https://code.google.com/p/waf/"
+!define MUI_FINISHPAGE_LINK						"Learn more about waf"
 !define MUI_FINISHPAGE_LINK_LOCATION			"https://code.google.com/p/waf/"
 
 Var StartMenuFolder
