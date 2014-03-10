@@ -16,7 +16,7 @@ Var /GLOBAL switch_overwrite
 Name                    "waf-${VERSION}"
 OutFile                 "waf-${VERSION}-win.amd64-setup.exe"
 InstallDir              "$PROGRAMFILES\waf"
-InstallDirRegKey        HKLM "${REGKEY}" ""
+InstallDirRegKey        HKCU "${REGKEY}" ""
 RequestExecutionLevel   admin
 AutoCloseWindow         false
 ShowInstDetails         show
@@ -24,7 +24,7 @@ ShowUnInstDetails       show
 CRCCheck                On
 
 !define MUI_ABORTWARNING
-!define MUI_STARTMENUPAGE_REGISTRY_ROOT         HKLM
+!define MUI_STARTMENUPAGE_REGISTRY_ROOT         HKCU
 !define MUI_STARTMENUPAGE_REGISTRY_KEY          "${REGKEY}" 
 !define MUI_STARTMENUPAGE_REGISTRY_VALUENAME    "Start Menu Folder"  
 !define MUI_VERSION                             "${VERSION}"
@@ -51,43 +51,68 @@ Var StartMenuFolder
 
 Section "-Install" Section0
 	SetOutPath "$INSTDIR\_tmp"
-	File packages\7zip\7za.exe
-	NSISdl::download https://waf.googlecode.com/files/waf-${VERSION}.tar.bz2 "waf-${VERSION}.tar.bz2"	
-	nsExec::ExecToLog "7za x -y waf-${VERSION}.tar.bz2"
-	nsExec::ExecToLog "7za x -y waf-${VERSION}.tar"
-	!insertmacro MoveFolder "$INSTDIR\_tmp\waf-${VERSION}\" "$INSTDIR" "*.*"
-	SetOutPath "$INSTDIR"
+	File extract.py
 
-	nsExec::ExecToStack /TIMEOUT=10000 "python ./waf-light configure"
+	nsExec::ExecToStack "python --version"
 	Pop $0
 	Pop $1
 	${If} $0 != 0
-		MessageBox MB_OK "Failed to configure waf: $0 $1"
+		MessageBox MB_OK "Failed to find Python interpreter.$\r$\n\
+		$\r$\n\
+		Please check installation and/or update system environment path."
+		Abort
+	${EndIf}
+	DetailPrint "Detected python interpreter: $1"
+
+	DetailPrint "Downloading waf package..."
+	NSISdl::download https://waf.googlecode.com/files/waf-${VERSION}.tar.bz2 "waf-${VERSION}.tar.bz2"	
+
+	DetailPrint "Extracting waf package..."	
+	nsExec::ExecToLog "python extract.py --name=waf-${VERSION}.tar.bz2"
+	Pop $0
+	${If} $0 != 0
+		MessageBox MB_OK "Failed to extract compressed archive."
+		Abort
 	${EndIf}
 	
-	nsExec::ExecToStack /TIMEOUT=10000 "python ./waf-light build"
+	DetailPrint "Moving waf package to destination..."	
+	!insertmacro MoveFolder "$INSTDIR\_tmp\waf-${VERSION}\" "$INSTDIR" "*.*"
+
+	SetOutPath "$INSTDIR"
+	nsExec::ExecToLog "python ./waf-light configure"
 	Pop $0
-	Pop $1
 	${If} $0 != 0
-		MessageBox MB_OK "Failed to build waf: $0 $1"
+		MessageBox MB_OK "Failed to configure waf."
+		Abort
 	${EndIf}
+	
+	nsExec::ExecToLog "python ./waf-light build"
+	Pop $0
+	${If} $0 != 0
+		MessageBox MB_OK "Failed to build waf."
+		Abort
+	${EndIf}
+	
+	RMDir /r "$INSTDIR\_tmp"	
 SectionEnd
 
 
 Section "-Post install" Section1
-	SetRegView 64
+	${If} ${RunningX64}
+		SetRegView 64
+	${EndIf}
 	GetFullPathName /SHORT $1 $INSTDIR
     ${EnvVarUpdate} $0 "PATH" "R" "HKLM" "$1"
     ${EnvVarUpdate} $0 "PATH" "P" "HKLM" "$1"
 
-    WriteRegStr HKLM "${REGKEY}" 				"" 					$INSTDIR
-    WriteRegStr HKLM "${UNINSTALL_REGKEY}" 		"DisplayName"		"Waf"
-    WriteRegStr HKLM "${UNINSTALL_REGKEY}" 		"DisplayVersion"	"${VERSION}"
-    WriteRegStr HKLM "${UNINSTALL_REGKEY}" 		"InstallLocation"	"$INSTDIR"
-    WriteRegStr HKLM "${UNINSTALL_REGKEY}" 		"Publisher"			"https://code.google.com/p/waf/"
-    WriteRegStr HKLM "${UNINSTALL_REGKEY}" 		"UninstallString"	"$INSTDIR\Uninstall.exe"
-	WriteRegDWORD HKLM "${UNINSTALL_REGKEY}"	"VersionMajor"		${VER_MAJOR}
-	WriteRegDWORD HKLM "${UNINSTALL_REGKEY}"	"VersionMinor"		${VER_MINOR}
+    WriteRegStr HKCU "${REGKEY}" 				"" 					$INSTDIR
+    WriteRegStr HKCU "${UNINSTALL_REGKEY}" 		"DisplayName"		"Waf"
+    WriteRegStr HKCU "${UNINSTALL_REGKEY}" 		"DisplayVersion"	"${VERSION}"
+    WriteRegStr HKCU "${UNINSTALL_REGKEY}" 		"InstallLocation"	"$INSTDIR"
+    WriteRegStr HKCU "${UNINSTALL_REGKEY}" 		"Publisher"			""
+    WriteRegStr HKCU "${UNINSTALL_REGKEY}" 		"UninstallString"	"$INSTDIR\Uninstall.exe"
+	WriteRegDWORD HKCU "${UNINSTALL_REGKEY}"	"VersionMajor"		${VER_MAJOR}
+	WriteRegDWORD HKCU "${UNINSTALL_REGKEY}"	"VersionMinor"		${VER_MINOR}
     WriteUninstaller "$INSTDIR\Uninstall.exe"
 
     !insertmacro MUI_STARTMENU_WRITE_BEGIN Application
@@ -98,7 +123,9 @@ SectionEnd
 
 
 Section Uninstall
-	SetRegView 64
+	${If} ${RunningX64}
+		SetRegView 64
+	${EndIf}
 	GetFullPathName /SHORT $1 $INSTDIR
     ${un.EnvVarUpdate} $0 "PATH" "R" "HKLM" "$1"
 
@@ -108,10 +135,7 @@ Section Uninstall
     Delete "$SMPROGRAMS\$StartMenuFolder\Uninstall.lnk"
     RMDir "$SMPROGRAMS\$StartMenuFolder"
 	
-	SetRegView 64
-    DeleteRegKey /ifempty HKLM "${REGKEY}"
     DeleteRegKey /ifempty HKCU "${REGKEY}"
-	DeleteRegKey HKLM "${UNINSTALL_REGKEY}"
 	DeleteRegKey HKCU "${UNINSTALL_REGKEY}"
 SectionEnd
 
