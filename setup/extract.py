@@ -1,14 +1,33 @@
+#!/usr/env python
+# -*- encoding: utf-8 -*-
+
+'''
+DESCRIPTION:
+Extracts compressed tar.gz or tar.bz2 archives.
+
+USAGE:
+	python extract.py [options]
+
+OPTIONS:
+	-h | --help		prints this help message.
+	
+	-n archive | --name=archive
+					specify the name of the archive to extact.
+
+	-p location | --path=location
+					specify the extraction location.
+
+'''
+
+
 import sys
 import getopt
 import tarfile
 
+
 def usage():
-	print('extracts compressed tar.gz or tar.bz2 archives')
-	print('usage: %s [options]' % sys.argv[0])
-	print('')
-	print('-h          | --help              prints this help')
-	print('-n archive  | --name=archive      specify the name of the archive to extact')
-	print('-p location | --path=location     speicify the location of the files to be extracted')
+	print(__doc__)
+
 
 if __name__ == "__main__":
 	try:
@@ -39,5 +58,6 @@ if __name__ == "__main__":
 		compression = 'gz'
 
 	t = tarfile.open(name, 'r:%s' % compression)
-	t.extractall(path=path)
-
+	for member in t.getmembers():
+		print(member.name)
+		t.extract(member, path=path)
