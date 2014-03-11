@@ -1,3 +1,10 @@
+!addplugindir "plugins"
+!include "plugins\EnvVarUpdate.nsh"
+!include "plugins\Slice.nsh"
+!include "MUI2.nsh"
+!include "x64.nsh"
+
+
 !define VER_MAJOR			0
 !define VER_MINOR			1
 !define VER_PATCH			1
@@ -12,22 +19,26 @@
 !define CODEBLOCKS_VER		"13.12"
 !define WAF_VER				"1.7.15"
 
-!define PYTHON_X64_PKG		"python-${PYTHON_VER}.amd64.msi"
-!define PYTHON_PKG			"python-${PYTHON_VER}.msi"
 !define CPPCHECK_PKG		"cppcheck-${CPPCHECK_VER}-x86-Setup.msi"
 !define MINGW_PKG			"mingw-get-setup.exe"
 !define NSIS_PKG			"nsis-${NSIS_VER}-setup.exe"
 !define CODEBLOCKS_PKG		"codeblocks-${CODEBLOCKS_VER}-setup.exe"
-!define WAF_PKG				"waf-${WAF_VER}-setup.exe"
 
-!addplugindir "plugins"
-!include "plugins\EnvVarUpdate.nsh"
-!include "plugins\Slice.nsh"
-!include "MUI2.nsh"
-!include "x64.nsh"
+!ifdef RunningX64
+!define PYTHON_PKG			"python-${PYTHON_VER}.amd64.msi"
+!define WAF_PKG				"waf-${WAF_VER}-win64-setup.exe"
+!else
+!define PYTHON_PKG			"python-${PYTHON_VER}.msi"
+!define WAF_PKG				"waf-${WAF_VER}-win32-setup.exe"
+!endif
+
 
 Name                    "ChiHuaHua"
-OutFile                 "chihuahua-v${VERSION}-setup.exe"
+!ifdef RunningX64
+OutFile                 "chihuahua-${VERSION}-win64-setup.exe"
+!else
+OutFile                 "chihuahua-${VERSION}-win32-setup.exe"
+!endif
 InstallDir              "$PROGRAMFILES\chihuahua"
 InstallDirRegKey        HKCU "${REGKEY}" ""
 RequestExecutionLevel   admin
@@ -40,7 +51,7 @@ CRCCheck                On
 !define MUI_STARTMENUPAGE_REGISTRY_ROOT         HKCU
 !define MUI_STARTMENUPAGE_REGISTRY_KEY          "${REGKEY}"
 !define MUI_STARTMENUPAGE_REGISTRY_VALUENAME    "Start Menu Folder"  
-!define MUI_VERSION                             "v${VERSION}"
+!define MUI_VERSION                             "${VERSION}"
 !define MUI_PRODUCT                             "ChiHuaHua ${MUI_VERSION}"
 !define MUI_BRANDINGTEXT                        ""
 !define MUI_ICON                                "install.ico"
@@ -49,7 +60,6 @@ CRCCheck                On
 !define MUI_FINISHPAGE_LINK_LOCATION			"https://github.com/michelm/chihuahua"
 
 Var StartMenuFolder
-Var Package
 Var InstallPath
 Var UninstallString
 
@@ -73,14 +83,9 @@ Section "-Install" Section0
 SectionEnd
 
 Section "Python" Section1
-	${If} ${RunningX64}
-		StrCpy $Package ${PYTHON_X64_PKG}
-	${Else}
-		StrCpy $Package ${PYTHON_PKG}
-	${EndIf}
     SetOutPath "$INSTDIR\packages"
-	NSISdl::download http://www.python.org/ftp/python/${PYTHON_VER}/$Package "$Package"
-	ExecWait '"msiexec" /i "$INSTDIR\packages\$Package"'
+	NSISdl::download http://www.python.org/ftp/python/${PYTHON_VER}/${PYTHON_PKG} "${PYTHON_PKG}"
+	ExecWait '"msiexec" /i "$INSTDIR\packages\${PYTHON_PKG}"'
 	
 	${If} ${RunningX64}
 		SetRegView 64
@@ -265,12 +270,7 @@ Section "Un.Python"
 	StrCpy $InstallPath $0
     ${un.EnvVarUpdate} $0 "PATH" "R" "HKLM" "$InstallPath\Scripts"
 
-	${If} ${RunningX64}
-		StrCpy $Package ${PYTHON_X64_PKG}
-	${Else}
-		StrCpy $Package ${PYTHON_PKG}
-	${EndIf}
-    ExecWait '"msiexec" /uninstall "$INSTDIR\packages\$Package"'
+    ExecWait '"msiexec" /uninstall "$INSTDIR\packages\${PYTHON_PKG}"'
 	RMDir /r $InstallPath
 SectionEnd
 

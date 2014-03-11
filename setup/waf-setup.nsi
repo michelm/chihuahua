@@ -14,7 +14,13 @@ Var /GLOBAL switch_overwrite
 !include "plugins\MoveFileFolder.nsh"
 
 Name                    "waf-${VERSION}"
-OutFile                 "waf-${VERSION}-setup.exe"
+
+!ifdef RunningX64
+OutFile                 "waf-${VERSION}-win64-setup.exe"
+!else
+OutFile                 "waf-${VERSION}-win32-setup.exe"
+!endif
+
 InstallDir              "$PROGRAMFILES\waf"
 InstallDirRegKey        HKCU "${REGKEY}" ""
 RequestExecutionLevel   admin
