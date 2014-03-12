@@ -19,7 +19,8 @@ then
 	sudo yum -y groupinstall "C Development Tools and Libraries"
 	sudo yum -y install \
 		wget git meld codeblocks codeblocks-libs \
-		python-pygments cppcheck
+		python-pygments cppcheck \
+		mingw32-gcc
 
 else
 	echo "System \'$RELEASE\' not supported (yet)!"

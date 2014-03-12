@@ -12,7 +12,7 @@ top = '.'
 out = 'build'
 prefix = 'output'
 
-VERSION = '0.0.2-beta'
+VERSION = '0.1.1'
 APPNAME = 'chihuahua'
 
 POKY = {}
@@ -23,6 +23,7 @@ if 'linux' in sys.platform:
 VARIANTS = POKY.keys()
 if 'linux' in sys.platform:
 	VARIANTS.append('win32')
+
 
 CONTEXTS = (
 	BuildContext, CleanContext, 
@@ -115,6 +116,9 @@ def _set_cc_options(conf):
 
 def _create_poky_env(conf, prefix, name, fname):
 	'''Create a cross compile environment using settings from yocto/poky.'''
+	if not os.path.exists(fname):
+		conf.msg("Setup Yocto for '%s'" % name, 'skipping', color='RED')
+		return
 	conf.setenv(name)
 	conf.env.PREFIX = os.sep.join([prefix, 'opt', name])
 	conf.env.BINDIR = os.sep.join([prefix, 'opt', name, 'bin'])
@@ -185,13 +189,28 @@ def _add_poky_options(conf, environment):
 
 def _create_mingw_env(conf, prefix, name='win32'):
 	'''Create a cross compile environment for MinGW.'''
+	import platform
+	if platform.machine() == 'i686':
+		mach = 'i686'
+		mingw = 'i686-w64-mingw32'
+	else:
+		mach = 'x86_64'
+		mingw = 'x86_64-w64-mingw32'
+
+	for cc in ('gcc', 'g++', 'ar'):
+		try:
+			conf.find_program('%s-%s' % (mingw, cc))
+		except:
+			conf.msg("Setup MinGW for '%s'" % mach, 'skipping', color='RED')
+			return
+
 	conf.setenv(name)
 	conf.env.PREFIX = os.sep.join([prefix, 'opt', name])
 	conf.env.BINDIR = os.sep.join([prefix, 'opt', name, 'bin'])
 	conf.env.LIBDIR = os.sep.join([prefix, 'opt', name, 'lib'])
-	conf.env.CC = ['x86_64-w64-mingw32-gcc']
-	conf.env.CXX = ['x86_64-w64-mingw32-g++']
-	conf.env.AR = ['x86_64-w64-mingw32-ar']
+	conf.env.CC = ['%s-gcc' % (mingw)]
+	conf.env.CXX = ['%s-g++' % (mingw)]
+	conf.env.AR = ['%s-ar' % (mingw)]
 	conf.load('compiler_c')
 	conf.load('compiler_cxx')
 	conf.load('export')
