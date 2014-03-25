@@ -153,14 +153,19 @@ Section "CppCheck" Section3
     SetOutPath "$INSTDIR\packages"
 	NSISdl::download http://optimate.dl.sourceforge.net/project/cppcheck/cppcheck/${CPPCHECK_VER}/${CPPCHECK_PKG} "${CPPCHECK_PKG}"
     ExecWait '"msiexec" /i "$INSTDIR\packages\${CPPCHECK_PKG}"'	
-	
+
 	${If} ${RunningX64}
 		SetRegView 64
 	${EndIf}
-	ReadRegStr $R0 HKCU "SOFTWARE\CppCheck\InstallationPath" ""
+	ReadRegStr $R0 HKCU "Software\Cppcheck" "InstallationPath"
 	StrCpy $InstallPath $R0
-    ${EnvVarUpdate} $0 "PATH" "R" "HKLM" "$InstallPath"
-    ${EnvVarUpdate} $0 "PATH" "A" "HKLM" "$InstallPath"	
+	StrCpy $0 $InstallPath "" -1
+	StrCmp $0 "\" +2 0
+	StrCmp $0 "/" 0 +2
+	StrCpy $0 $InstallPath -1
+	StrCpy $InstallPath $0
+	${EnvVarUpdate} $0 "PATH" "R" "HKLM" "$InstallPath"
+	${EnvVarUpdate} $0 "PATH" "A" "HKLM" "$InstallPath"
 SectionEnd
 LangString DESC_Section3 ${LANG_ENGLISH} "Installs CppCheck ${CPPCHECK_VER}"
 
@@ -204,6 +209,17 @@ Section "NSIS" Section5
     SetOutPath "$INSTDIR\packages"
 	NSISdl::download http://prdownloads.sourceforge.net/nsis/${NSIS_PKG}?download "${NSIS_PKG}"
 	ExecWait "$INSTDIR\packages\${NSIS_PKG}"
+
+	${If} ${RunningX64}
+		SetRegView 32
+	${EndIf}
+	ReadRegStr $R0 HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\NSIS" "InstallLocation"
+	StrCpy $InstallPath $R0
+	${If} ${RunningX64}
+		SetRegView 64
+	${EndIf}
+	${EnvVarUpdate} $0 "PATH" "R" "HKLM" "$InstallPath"
+	${EnvVarUpdate} $0 "PATH" "A" "HKLM" "$InstallPath"	
 SectionEnd
 LangString DESC_Section5 ${LANG_ENGLISH} "Install NSIS ${NSIS_VER}"
 
@@ -285,7 +301,7 @@ Section "Un.CppCheck"
 	${If} ${RunningX64}
 		SetRegView 64
 	${EndIf}	
-	ReadRegStr $R0 HKCU "SOFTWARE\CppCheck\InstallationPath" ""
+	ReadRegStr $R0 HKCU "SOFTWARE\CppCheck" "InstallationPath"
 	StrCpy $InstallPath $R0
     ${un.EnvVarUpdate} $0 "PATH" "R" "HKLM" "$InstallPath"
     ExecWait '"msiexec" /uninstall "$INSTDIR\packages\${CPPCHECK_PKG}"'	
@@ -295,7 +311,7 @@ Section "Un.MinGW"
 	${If} ${RunningX64}
 		SetRegView 64
 	${EndIf}
-	ReadRegStr $R0 HKCU "${REGKEY}\InstallPathMinGW" ""
+	ReadRegStr $R0 HKCU "${REGKEY}" "InstallPathMinGW"
 	StrCpy $InstallPath $R0
 	StrCmp $InstallPath "" mingw_uninstall 0
 
@@ -329,10 +345,17 @@ SectionEnd
 
 Section "Un.NSIS"
 	${If} ${RunningX64}
+		SetRegView 32
+	${EndIf}
+	ReadRegStr $R0 HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\NSIS" "InstallLocation"
+	StrCpy $InstallPath $R0
+	ReadRegStr $R0 HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\NSIS" "UninstallString"
+	StrCpy $UninstallString $R0
+
+	${If} ${RunningX64}
 		SetRegView 64
 	${EndIf}
-	ReadRegStr $R0 HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\NSIS\UninstallString" ""
-	StrCpy $UninstallString $R0
+	${un.EnvVarUpdate} $0 "PATH" "R" "HKLM" "$InstallPath"	
 	ExecWait "$UninstallString"
 SectionEnd
 
@@ -340,8 +363,12 @@ Section "Un.CodeBlocks"
 	${If} ${RunningX64}
 		SetRegView 64
 	${EndIf}
-	ReadRegStr $R0 HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\CodeBlocks\UninstallString" ""
+	ReadRegStr $R0 HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\CodeBlocks" "UninstallString"
 	StrCpy $UninstallString $R0
+	StrCmp $UninstallString "" 0 +3
+	ReadRegStr $R0 HKCU "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\CodeBlocks" "UninstallString"
+	StrCpy $UninstallString $R0
+	
 	ExecWait "$UninstallString"
 SectionEnd
 
