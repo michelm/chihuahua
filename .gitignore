@@ -5,10 +5,8 @@
 .lock-waf*
 .settings/*
 
-build/*
-downloads/*
-reports/*
-output/*
+test/build/*
+test/chihuahua*.tar.bz2
 doc/_build/*
 
 Makefile

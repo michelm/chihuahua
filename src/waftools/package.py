@@ -3,19 +3,32 @@
 import shutil, os, sys
 from waflib import Build, Context, Scripting, Logs
 
+PACKAGE_TYPES_DEFAULT='all'
+
 def options(opt):
-    opt.add_option('--package_types', dest='package_types', default='all',
-                   action='store', help='package types to create (default=all)')
+	'''Adds command line options to the *waf* build environment 
+
+	:param opt: Options context from the *waf* build environment.
+	:type opt: waflib.Options.OptionsContext
+	'''
+	opt.add_option('--package_types', 
+		dest='package_types',
+		default=PACKAGE_TYPES_DEFAULT,
+		action='store',
+		help='package types to create (default=all)')
+
 
 def configure(conf):
+	'''Method that will be invoked by *waf* when configuring the build 
+	environment.
+	
+	:param conf: Configuration context from the *waf* build environment.
+	:type conf: waflib.Configure.ConfigurationContext
+	'''	
 	conf.env.PACKAGE_TYPES = conf.options.package_types.split(',')
+	conf.find_program('makensis', var='NSIS')
 
-	if sys.platform == 'win32':
-		try:
-			conf.find_program('makensis', var='NSIS')
-		except conf.errors.ConfigurationError:
-			conf.to_log('makensis was not found (ignoring)')
-		
+	
 class PackageContext(Build.InstallContext):
 	cmd = 'package'
 	fun = 'build'
@@ -45,6 +58,10 @@ class PackageContext(Build.InstallContext):
 		pkgtype = self.env.PACKAGE_TYPES
 		files = self._get_files()
 
+		pkg = self.options.package_types
+		if pkg != PACKAGE_TYPES_DEFAULT:
+			pkgtype = pkg.split(',')
+		
 		if set(pkgtype) & set(['all', 'ls']):
 			self._package_ls(appname, variant, version, files)
 		
@@ -54,7 +71,8 @@ class PackageContext(Build.InstallContext):
 		if set(pkgtype) & set(['all', 'nsis']):
 			self._package_nsis(appname, variant, version, files)
 
-		shutil.rmtree(self._package.abspath())
+		# TODO: why clean up? distclean will take of this anyway
+		#shutil.rmtree(self._package.abspath())
 
 	def _get_files(self):
 		'''returns a list of file names to be packaged from which the PREFIX
