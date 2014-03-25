@@ -7,7 +7,7 @@
 
 !define VER_MAJOR			0
 !define VER_MINOR			1
-!define VER_PATCH			1
+!define VER_PATCH			2
 !define VERSION     		"${VER_MAJOR}.${VER_MINOR}.${VER_PATCH}"
 !define REGKEY      		"Software\ChiHuaHua"
 !define UNINSTALL_REGKEY	"Software\Microsoft\Windows\CurrentVersion\Uninstall\ChiHuaHua"
@@ -33,11 +33,11 @@
 !endif
 
 
-Name                    	"ChiHuaHua"
+Name                    	"ChiHuaHua ${VERSION}"
 !ifdef RunningX64
-OutFile                 	"chihuahua-${VERSION}-win64-setup.exe"
+OutFile                 	"chihuahua-win64-setup.exe"
 !else
-OutFile                 	"chihuahua-${VERSION}-win32-setup.exe"
+OutFile                 	"chihuahua-win32-setup.exe"
 !endif
 InstallDir              	"$PROGRAMFILES\chihuahua"
 InstallDirRegKey        	HKCU "${REGKEY}" ""
@@ -109,7 +109,7 @@ Section "Python" Section1
 	StrCpy $R0 "$InstallPath;$InstallPath\Scripts;$R0"
 	SetEnv::SetEnvVar "PATH" $R0
 SectionEnd
-LangString DESC_Section1 ${LANG_ENGLISH} "Installs Python version ${PYTHON_VER}."
+LangString DESC_Section1 ${LANG_ENGLISH} "Installs Python ${PYTHON_VER}."
 
 Section "PyTools" Section2	
 	SetOutPath "$INSTDIR\packages"
@@ -162,7 +162,7 @@ Section "CppCheck" Section3
     ${EnvVarUpdate} $0 "PATH" "R" "HKLM" "$InstallPath"
     ${EnvVarUpdate} $0 "PATH" "A" "HKLM" "$InstallPath"	
 SectionEnd
-LangString DESC_Section3 ${LANG_ENGLISH} "Installs cppcheck, a C/C++ source code analyzer."
+LangString DESC_Section3 ${LANG_ENGLISH} "Installs CppCheck ${CPPCHECK_VER}"
 
 Section "MinGW" Section4
     SetOutPath "$INSTDIR\packages"	
@@ -205,21 +205,21 @@ Section "NSIS" Section5
 	NSISdl::download http://prdownloads.sourceforge.net/nsis/${NSIS_PKG}?download "${NSIS_PKG}"
 	ExecWait "$INSTDIR\packages\${NSIS_PKG}"
 SectionEnd
-LangString DESC_Section5 ${LANG_ENGLISH} "Nullsoft Scriptable Install System"
+LangString DESC_Section5 ${LANG_ENGLISH} "Install NSIS ${NSIS_VER}"
 
 Section "CodeBlocks" Section6
     SetOutPath "$INSTDIR\packages"
 	NSISdl::download http://skylink.dl.sourceforge.net/project/codeblocks/Binaries/${CODEBLOCKS_VER}/Windows/${CODEBLOCKS_PKG} "${CODEBLOCKS_PKG}"	
     ExecWait "$INSTDIR\packages\${CODEBLOCKS_PKG}"	
 SectionEnd
-LangString DESC_Section6 ${LANG_ENGLISH} "Installs Code::Block (C/C++ IDE well suited for cross platform development)."
+LangString DESC_Section6 ${LANG_ENGLISH} "Installs CodeBlocks ${CODEBLOCKS_VER}"
 
 Section "Waf" Section7
     SetOutPath "$INSTDIR\packages"
 	File ${WAF_PKG}
     ExecWait "$INSTDIR\packages\${WAF_PKG}"	
 SectionEnd
-LangString DESC_Section7 ${LANG_ENGLISH} "Installs Waf - The Meta Build System."
+LangString DESC_Section7 ${LANG_ENGLISH} "Installs Waf ${WAF_VER}"
 
 Section "-Post install" Section8
 	${If} ${RunningX64}
