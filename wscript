@@ -56,6 +56,7 @@ def options(opt):
 
 	opt.load('cppcheck', tooldir=os.path.dirname(waftools.__file__))
 	opt.load('export', tooldir=os.path.dirname(waftools.__file__))
+	opt.load('package', tooldir=os.path.dirname(waftools.__file__))
 
 
 def configure(conf):
@@ -72,6 +73,7 @@ def configure(conf):
 	conf.load('compiler_cxx')
 	conf.load('cppcheck')
 	conf.load('export')
+	conf.load('package')
 	_set_cc_options(conf)
 
 
