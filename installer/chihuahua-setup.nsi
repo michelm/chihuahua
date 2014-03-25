@@ -137,9 +137,9 @@ Section "PyTools" Section2
 	${EndIf}
 
 	SetOutPath "$INSTDIR\packages\waftools\waftools"
-	File ..\waftools\*.py
+	File ..\src\waftools\*.py
 	SetOutPath "$INSTDIR\packages\waftools"
-	File ..\setup.py
+	File ..\src\setup.py
 	nsExec::ExecToLog 'python setup.py install'
 	Pop $0
 	${If} $0 != 0
