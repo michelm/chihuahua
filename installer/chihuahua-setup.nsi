@@ -33,19 +33,19 @@
 !endif
 
 
-Name                    "ChiHuaHua"
+Name                    	"ChiHuaHua"
 !ifdef RunningX64
-OutFile                 "chihuahua-${VERSION}-win64-setup.exe"
+OutFile                 	"chihuahua-${VERSION}-win64-setup.exe"
 !else
-OutFile                 "chihuahua-${VERSION}-win32-setup.exe"
+OutFile                 	"chihuahua-${VERSION}-win32-setup.exe"
 !endif
-InstallDir              "$PROGRAMFILES\chihuahua"
-InstallDirRegKey        HKCU "${REGKEY}" ""
-RequestExecutionLevel   admin
-AutoCloseWindow         false
-ShowInstDetails         show
-ShowUnInstDetails       show
-CRCCheck                On
+InstallDir              	"$PROGRAMFILES\chihuahua"
+InstallDirRegKey        	HKCU "${REGKEY}" ""
+RequestExecutionLevel   	admin
+AutoCloseWindow         	false
+ShowInstDetails         	show
+ShowUnInstDetails       	show
+CRCCheck                	On
 
 !define MUI_ABORTWARNING
 !define MUI_STARTMENUPAGE_REGISTRY_ROOT         HKCU
@@ -77,13 +77,13 @@ Var UninstallString
 !insertmacro MUI_LANGUAGE "English"
 
 Section "-Install" Section0
-    SetOutPath "$INSTDIR"
+	SetOutPath "$INSTDIR"
 	File ..\README.md
 	File ..\LICENSE
 SectionEnd
 
 Section "Python" Section1
-    SetOutPath "$INSTDIR\packages"
+	SetOutPath "$INSTDIR\packages"
 	NSISdl::download http://www.python.org/ftp/python/${PYTHON_VER}/${PYTHON_PKG} "${PYTHON_PKG}"
 	ExecWait '"msiexec" /i "$INSTDIR\packages\${PYTHON_PKG}"'
 	
@@ -100,11 +100,11 @@ Section "Python" Section1
 	StrCmp $0 "/" 0 +2
 	StrCpy $0 $InstallPath -1
 	StrCpy $InstallPath $0
-    ${EnvVarUpdate} $0 "PATH" "R" "HKLM" "$InstallPath\Scripts"
-    ${EnvVarUpdate} $0 "PATH" "P" "HKLM" "$InstallPath\Scripts"
-    ${EnvVarUpdate} $0 "PATH" "R" "HKLM" "$InstallPath"
-    ${EnvVarUpdate} $0 "PATH" "P" "HKLM" "$InstallPath"
-	
+	${EnvVarUpdate} $0 "PATH" "R" "HKLM" "$InstallPath\Scripts"
+	${EnvVarUpdate} $0 "PATH" "P" "HKLM" "$InstallPath\Scripts"
+	${EnvVarUpdate} $0 "PATH" "R" "HKLM" "$InstallPath"
+	${EnvVarUpdate} $0 "PATH" "P" "HKLM" "$InstallPath"
+
 	ReadEnvStr $R0 "PATH"
 	StrCpy $R0 "$InstallPath;$InstallPath\Scripts;$R0"
 	SetEnv::SetEnvVar "PATH" $R0
@@ -112,8 +112,15 @@ SectionEnd
 LangString DESC_Section1 ${LANG_ENGLISH} "Installs Python version ${PYTHON_VER}."
 
 Section "PyTools" Section2	
-    SetOutPath "$INSTDIR\packages"	
-	File packages\python\get-pip.py
+	SetOutPath "$INSTDIR\packages"
+	File "download-pip.py"
+	nsExec::ExecToLog 'python download-pip.py'
+	Pop $0
+	${If} $0 != 0
+		MessageBox MB_OK "Failed to download PIP."
+		Abort
+	${EndIf}
+
 	nsExec::ExecToLog 'python get-pip.py'
 	Pop $0
 	${If} $0 != 0
@@ -121,7 +128,7 @@ Section "PyTools" Section2
 		Abort
 	${EndIf}
 	
-    SetOutPath "$INSTDIR\packages"	
+	SetOutPath "$INSTDIR\packages"	
 	nsExec::ExecToLog 'pip install Pygments'
 	Pop $0
 	${If} $0 != 0
@@ -129,9 +136,9 @@ Section "PyTools" Section2
 		Abort
 	${EndIf}
 
-    SetOutPath "$INSTDIR\packages\waftools\waftools"
+	SetOutPath "$INSTDIR\packages\waftools\waftools"
 	File ..\waftools\*.py
-    SetOutPath "$INSTDIR\packages\waftools"
+	SetOutPath "$INSTDIR\packages\waftools"
 	File ..\setup.py
 	nsExec::ExecToLog 'python setup.py install'
 	Pop $0
