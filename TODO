@@ -1,7 +1,10 @@
 
 Installation:
-- Create NSIS installer for setting up environment in Windows
++ Create NSIS installer for setting up environment in Windows
 - Create RPM for setting up envioronment in Fedora
+	--> see grive for example RPM spec
+	--> add sphinx as build req.
+	--> add waf as build req.
 
 Components:
 + Add C component using external lib (e.g. math)
@@ -31,7 +34,7 @@ Environment:
 - Create tools for setting up a personal chihuahua build environment
 
 Verification:
-- Test environmont with Python 3.x.x
++ Test environmont with Python 3.x.x
 - Create test environment for Fedora, WinXP and Win7 for regression testing
 - Test Eclipse export in Windows
 
