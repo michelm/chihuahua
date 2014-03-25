@@ -5,6 +5,7 @@
 .lock-waf*
 .settings/*
 
+src/build/*
 test/build/*
 test/chihuahua*.tar.bz2
 doc/_build/*
