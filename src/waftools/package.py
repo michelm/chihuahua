@@ -17,7 +17,19 @@ def options(opt):
 		action='store',
 		help='package types to create (default=all)')
 
+	opt.add_option('--package_cleanup', 
+		dest='package_cleanup',
+		default=False,
+		action='store_true',
+		help='cleanup package staging area')
 
+	opt.add_option('--nsis_script', 
+		dest='nsis_script',
+		default='install.nsi',
+		action='store',
+		help='nsis install script (default=install.nsi)')
+		
+		
 def configure(conf):
 	'''Method that will be invoked by *waf* when configuring the build 
 	environment.
@@ -26,6 +38,7 @@ def configure(conf):
 	:type conf: waflib.Configure.ConfigurationContext
 	'''	
 	conf.env.PACKAGE_TYPES = conf.options.package_types.split(',')
+	conf.env.NSIS_SCRIPT = conf.options.nsis_script
 	conf.find_program('makensis', var='NSIS')
 
 	
@@ -71,8 +84,8 @@ class PackageContext(Build.InstallContext):
 		if set(pkgtype) & set(['all', 'nsis']):
 			self._package_nsis(appname, variant, version, files)
 
-		# TODO: why clean up? distclean will take of this anyway
-		#shutil.rmtree(self._package.abspath())
+		if self.options.package_cleanup:
+			shutil.rmtree(self._package.abspath())
 
 	def _get_files(self):
 		'''returns a list of file names to be packaged from which the PREFIX
@@ -123,15 +136,19 @@ class PackageContext(Build.InstallContext):
 				Logs.warn('NSIS not available, skipping')
 				return
 			nsis = nsis[0]
-		# TODO: 
-		# - create .nsi script on the fly
-		# - call makensis
-		cmd = '%s /VERSION' % nsis
-		stdout = self.cmd_and_log(cmd, output=Context.STDOUT, quiet=Context.STDOUT)
-		Logs.info(stdout)
+			
+		fname = self.env.NSIS_SCRIPT
+		script = self.path.find_node(fname)
+		if not script:
+			script = self._nsis_create_script(fname)
 		
+		cwd = self._package.abspath()
+		cmd = '%s /NOCD %s' % (nsis, script.abspath())
+		stdout = self.cmd_and_log(cmd, output=Context.STDOUT, quiet=Context.STDOUT, cwd=cwd)
+		Logs.info(stdout)
 
-	
-	
-	
+	def _nsis_create_script(self, fname):
+		script = self.path.make_node(fname)
+		# TODO: create nsi script using buildin template
+		return script
 	
