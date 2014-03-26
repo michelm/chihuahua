@@ -12,8 +12,8 @@ top = '.'
 out = 'build'
 prefix = 'output'
 
-VERSION = '0.1.1'
-APPNAME = 'chihuahua'
+VERSION = '0.6.2'
+APPNAME = 'ChiHuaHuaTest'
 
 POKY = {}
 if 'linux' in sys.platform:
@@ -102,8 +102,9 @@ def dist(ctx):
 def _set_cc_options(conf):
 	conf.env.CFLAGS = ['-Wall']
 	conf.env.CXXFLAGS = ['-Wall']
-	conf.env.RPATH = ['/lib', '/usr/lib', '/usr/local/lib']
-	conf.env.append_unique('RPATH', conf.env.LIBDIR)
+	if conf.env.DEST_OS != 'win32':
+		conf.env.RPATH = ['/lib', '/usr/lib', '/usr/local/lib']
+		conf.env.append_unique('RPATH', conf.env.LIBDIR)
 
 	if conf.options.debug:
 		conf.env.append_unique('CFLAGS', '-ggdb')
