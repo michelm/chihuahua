@@ -2,7 +2,7 @@ waftools Package
 ================
 
 :mod:`cmake` Module
-------------------------
+-------------------
 
 .. automodule:: waftools.cmake
     :members:
@@ -45,6 +45,14 @@ waftools Package
 ----------------------
 
 .. automodule:: waftools.makefile
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+:mod:`package` Module
+---------------------
+
+.. automodule:: waftools.package
     :members:
     :undoc-members:
     :show-inheritance:

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #
 # waftools documentation build configuration file, created by
-# sphinx-quickstart on Thu Nov 21 14:22:43 2013.
+# sphinx-quickstart on Thu Mar 27 16:44:01 2014.
 #
 # This file is execfile()d with the current directory set to its containing dir.
 #
@@ -16,10 +16,7 @@ import sys, os
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
-sys.path.insert(0, os.path.abspath('.'))
-sys.path.insert(0, os.path.abspath('..'))
-sys.path.insert(0, os.path.abspath('/usr/share/waf'))
-sys.path.insert(0, os.path.abspath('/usr/share/waf/waflib'))
+#sys.path.insert(0, os.path.abspath('.'))
 
 # -- General configuration -----------------------------------------------------
 
@@ -44,7 +41,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'waftools'
-copyright = u'2013, Author'
+copyright = u'2014, Author'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -77,7 +74,7 @@ exclude_patterns = ['_build']
 
 # If true, the current module name will be prepended to all description
 # unit titles (such as .. function::).
-add_module_names = False
+#add_module_names = True
 
 # If true, sectionauthor and moduleauthor directives will be shown in the
 # output. They are ignored by default.
@@ -251,7 +248,7 @@ texinfo_documents = [
 epub_title = u'waftools'
 epub_author = u'Author'
 epub_publisher = u'Author'
-epub_copyright = u'2013, Author'
+epub_copyright = u'2014, Author'
 
 # The language of the text. It defaults to the language option
 # or en if the language is not set.
