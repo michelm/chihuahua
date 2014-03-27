@@ -55,7 +55,7 @@ def configure(conf):
 	'''	
 	conf.env.PACKAGE_TYPES = conf.options.package_types.split(',')
 	conf.env.NSIS_SCRIPT = conf.options.nsis_script
-	conf.find_program('makensis', var='NSIS')
+	conf.find_program('makensis', var='NSIS', mandatory=False)
 
 
 class PackageContext(Build.InstallContext):
