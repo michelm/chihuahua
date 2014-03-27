@@ -104,7 +104,7 @@ class PackageContext(Build.InstallContext):
 			self._package_tar_bz2(appname, variant, version)
 
 		if set(pkgtype) & set(['all', 'nsis']):
-			self._package_nsis(appname, variant, version, files)
+			self._package_nsis(appname, version)
 
 		if self.options.package_cleanup:
 			shutil.rmtree(self._package.abspath())
@@ -173,7 +173,7 @@ class PackageContext(Build.InstallContext):
 		ctx.archive()
 		p('-----------------------')
 
-	def _package_nsis(self, appname, variant, version, files):
+	def _package_nsis(self, appname, version):
 		'''Creates an installer for Windows hosts using NSIS.
 		
 		If the install script does not exist, a default install
@@ -181,12 +181,8 @@ class PackageContext(Build.InstallContext):
 
 		:param appname: Functional application and package name
 		:type appname: str
-		:param variant: Name of the build variant (if any)
-		:type variant: str or None
 		:param version: Current version of the application being packaged
 		:type version: str
-		:param files: List of file nodes
-		:type files: list
 		'''	
 		nsis = self.env.NSIS
 		if isinstance(nsis, list):
@@ -228,6 +224,9 @@ class PackageContext(Build.InstallContext):
 			outfile = '%s-%s-win64-setup.exe' % (appname, version)
 		outfile = os.path.join(self.path.abspath(), outfile)
 		args.append('/DINSTALLER=%s' % outfile)
+
+		if sys.platform != 'win32':
+			args = [a.replace('/','-',1) for a in args]
 
 		cmd = '%s %s %s' % (nsis, ' '.join(args), script.abspath())
 		cwd = self._package.abspath()
