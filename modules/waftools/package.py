@@ -91,25 +91,25 @@ class PackageContext(Build.InstallContext):
 		appname = getattr(Context.g_module, Context.APPNAME, self.top_dir)
 		variant = self.variant if self.variant else ''
 		pkgtype = self.env.PACKAGE_TYPES
-		files = self._get_files()
+		files = self.get_files()
 
 		pkg = self.options.package_types
 		if pkg != PACKAGE_TYPES_DEFAULT:
 			pkgtype = pkg.split(',')
 
 		if set(pkgtype) & set(['all', 'ls']):
-			self._package_ls(appname, variant, version, files)
+			self.package_ls(appname, variant, version, files)
 
 		if set(pkgtype) & set(['all', 'tar.bz2']):
-			self._package_tar_bz2(appname, variant, version)
+			self.package_tar_bz2(appname, variant, version)
 
 		if set(pkgtype) & set(['all', 'nsis']):
-			self._package_nsis(appname, version)
+			self.package_nsis(appname, version)
 
 		if self.options.package_cleanup:
 			shutil.rmtree(self._package.abspath())
 
-	def _get_files(self):
+	def get_files(self):
 		'''returns a list of file names to be packaged from which the PREFIX
 		path has been stripped.		
 		'''
@@ -121,7 +121,7 @@ class PackageContext(Build.InstallContext):
 			files.append(f)
 		return files
 
-	def _package_ls(self, appname, variant, version, files):
+	def package_ls(self, appname, variant, version, files):
 		'''Lists all files that will be packaged.
 
 		:param appname: Functional application and package name
@@ -147,7 +147,7 @@ class PackageContext(Build.InstallContext):
 			p('$PREFIX%s' % f)
 		p('-----------------------')
 
-	def _package_tar_bz2(self, appname, variant, version):
+	def package_tar_bz2(self, appname, variant, version):
 		'''Creates a tar.gz archive.
 
 		:param appname: Functional application and package name
@@ -173,7 +173,7 @@ class PackageContext(Build.InstallContext):
 		ctx.archive()
 		p('-----------------------')
 
-	def _package_nsis(self, appname, version):
+	def package_nsis(self, appname, version):
 		'''Creates an installer for Windows hosts using NSIS.
 		
 		If the install script does not exist, a default install
@@ -194,7 +194,7 @@ class PackageContext(Build.InstallContext):
 		fname = self.env.NSIS_SCRIPT
 		script = self.path.find_node(fname)
 		if not script:
-			script = self._nsis_create_script(fname, appname)
+			script = self.nsis_create_script(fname, appname)
 		
 		args = []
 		args.append('/V4')
@@ -233,7 +233,7 @@ class PackageContext(Build.InstallContext):
 		stdout = self.cmd_and_log(cmd, output=Context.STDOUT, quiet=Context.STDOUT, cwd=cwd)
 		Logs.info(stdout)
 
-	def _nsis_create_script(self, fname, appname):
+	def nsis_create_script(self, fname, appname):
 		'''Creates and returns a NSIS installer script using the buildin template.
 
 		:param fname: Name of the script file (including path).

@@ -35,7 +35,7 @@ def _selected(bld):
 
 	
 def export(bld):
-	'''Exports all C and C++ task generators to makefiles.
+	'''Exports all C and C++ task generators to cmake.
 	
 	:param bld: a *waf* build instance from the top level *wscript*.
 	:type bld: waflib.Build.BuildContext
