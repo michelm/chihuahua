@@ -11,7 +11,7 @@ Components:
 
 Export modules:
 - Add description for makefile export module
-- Add description for export module
++ Add description for export module
 + Add description for cppcheck module
 - Add description for eclipse export module
 + Add export module for cmake
