@@ -7,6 +7,7 @@
 
 test/build/*
 test/chihuahua*.tar.bz2
+modules/build/*
 modules/doc/_build/*
 
 Makefile

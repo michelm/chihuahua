@@ -5,7 +5,14 @@
 '''
 Summary
 -------
-*TODO*
+Exports and converts *waf* project data, for C/C++ programs, static- and shared
+libraries, into **Eclipse** *CDT* project files (.cbp) and workspaces 
+(codeblock.workspace).
+**Eclipse** is an open source integrated development environment, which can be, 
+amongst others, used for development of C/C++ programs. 
+
+See https://www.eclipse.org and https://www.eclipse.org/cdt for a more detailed 
+description on how to install and use it for your particular Desktop environment.
 
 Description
 -----------

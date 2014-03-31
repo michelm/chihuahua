@@ -62,45 +62,45 @@ exported from the test directory::
 
 		#------------------------------------------------------------------------------
 		# list of unique logical module names;
-		modules= \
-			cxxstlib \
-			ciambad \
-			cstlib \
-			cxxshlib \
-			cprogram \
-			cmath \
-			cleaking \
-			cshlib \
-			chello \
-			cxxprogram \
+		modules= \\
+			cxxstlib \\
+			ciambad \\
+			cstlib \\
+			cxxshlib \\
+			cprogram \\
+			cmath \\
+			cleaking \\
+			cshlib \\
+			chello \\
+			cxxprogram \\
 			cxxhello
 
 		# dictionary of modules names (key) and paths to modules;
-		paths= \
-			cxxstlib;components/cxxlib/static \
-			ciambad;components/ciambad \
-			cstlib;components/clib/static \
-			cxxshlib;components/cxxlib/shared \
-			cprogram;components/clib/program \
-			cmath;components/cmath \
-			cleaking;components/cleaking \
-			cshlib;components/clib/shared \
-			chello;components/chello \
-			cxxprogram;components/cxxlib/program \
+		paths= \\
+			cxxstlib;components/cxxlib/static \\
+			ciambad;components/ciambad \\
+			cstlib;components/clib/static \\
+			cxxshlib;components/cxxlib/shared \\
+			cprogram;components/clib/program \\
+			cmath;components/cmath \\
+			cleaking;components/cleaking \\
+			cshlib;components/clib/shared \\
+			chello;components/chello \\
+			cxxprogram;components/cxxlib/program \\
 			cxxhello;components/cxxhello
 
 		# dictionary of modules names (key) and module dependencies;
-		deps= \
-			cxxstlib; \
-			ciambad;cleaking \
-			cstlib; \
-			cxxshlib; \
-			cprogram;cstlib,cshlib \
-			cmath; \
-			cleaking; \
-			cshlib; \
-			chello; \
-			cxxprogram;cxxstlib,cxxshlib \
+		deps= \\
+			cxxstlib; \\
+			ciambad;cleaking \\
+			cstlib; \\
+			cxxshlib; \\
+			cprogram;cstlib,cshlib \\
+			cmath; \\
+			cleaking; \\
+			cshlib; \\
+			chello; \\
+			cxxprogram;cxxstlib,cxxshlib \\
 			cxxhello;
 
 		#------------------------------------------------------------------------------
@@ -295,7 +295,7 @@ that has been exported from the test directory::
 		OUTPUT=$(OUT)/$(BIN)
 
 		# REMARK: use $(wildcard src/*.c) to include all sources.
-		SOURCES= \
+		SOURCES= \\
 			src/hello.c
 
 		OBJECTS=$(SOURCES:.c=.1.o)
@@ -303,7 +303,7 @@ that has been exported from the test directory::
 		DEFINES+=HELLO_VERSION='"1.2.3"'
 		DEFINES:=$(addprefix -D,$(DEFINES))
 
-		INCLUDES+= \
+		INCLUDES+= \\
 			./include
 
 		HEADERS:=$(foreach inc,$(INCLUDES),$(wildcard $(inc)/*.h))

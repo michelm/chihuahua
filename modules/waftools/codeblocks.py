@@ -5,9 +5,9 @@
 '''
 Summary
 -------
-This module exports and converts *waf* project data, for C/C++ programs, 
-static- and shared libraries, into **Code::Blocks** project files (.cbp) and 
-workspaces (codeblock.workspace).
+Exports and converts *waf* project data, for C/C++ programs, static- and shared
+libraries, into **Code::Blocks** project files (.cbp) and workspaces 
+(codeblock.workspace).
 **Code::Blocks** is an open source integrated development environment for C
 and C++. It is available for all major Desktop Operating Systems (MS Windows,
 all major Linux distributions and Macintosh OS-X).

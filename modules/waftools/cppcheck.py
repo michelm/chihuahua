@@ -6,8 +6,8 @@
 '''
 Summary
 -------
-This module provides a *waf* wrapper (i.e. waftool) around the static C/C++ 
-source code checking tool **cppcheck**.
+Provides a *waf* wrapper (i.e. waftool) around the static C/C++ source code
+checking tool **cppcheck**.
 
 See http://cppcheck.sourceforge.net/ for more information on **cppcheck** 
 itself; how you can obtain and install it for your particular desktop 
