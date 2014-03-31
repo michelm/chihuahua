@@ -10,7 +10,7 @@ Components:
 + Add C component using external lib (e.g. math)
 
 Export modules:
-- Add description for makefile export module
++ Add description for makefile export module
 + Add description for export module
 + Add description for cppcheck module
 - Add description for eclipse export module
@@ -38,7 +38,9 @@ Verification:
 - Create test environment for Fedora, WinXP and Win7 for regression testing
 - Test Eclipse export in Windows
 
-
+Bugs:
+- Fix problem when exporting Eclipse project files in case workspace_loc could 
+not be detected.
 
 
 
