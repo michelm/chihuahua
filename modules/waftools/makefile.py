@@ -2,6 +2,420 @@
 # -*- encoding: utf-8 -*-
 # Michel Mooij, michel.mooij7@gmail.com
 
+'''
+Summary
+-------
+Generate **GNU Make** files of all C/C++ programs, static- and shared libraries
+that have been defined within a *waf* build environment.
+Once exported to makefiles, all exported (C/C++) tasks can be build without 
+any further need for, or dependency, to the *waf* build system itself.
+
+Description
+-----------
+When exporting *waf* project data, a single top level **GNU Make** file will be
+exported in the top level directory of your *WAF* build environment. This 
+makefile file will contain references to all exported makefiles of each 
+individual C/C++ build task, contains generic variables and settings (e.g 
+compiler to use, global preprocessor defines, link options and so on).
+
+Example below presents the content of the top level makefile that has been 
+exported from the test directory::
+
+
+		#------------------------------------------------------------------------------
+		# CHIHUAHUA generated makefile
+		# version: 0.0.2
+		# waf: 1.7.15
+		#------------------------------------------------------------------------------
+
+		SHELL=/bin/sh
+
+		# commas, spaces and tabs:
+		sp:= 
+		sp+= 
+		tab:=$(sp)$(sp)$(sp)$(sp)
+		comma:=,
+
+		# token for separating dictionary keys and values:
+		dsep:=;
+
+		# token for separating list elements:
+		lsep:=,
+
+		export APPNAME:=ChiHuaHuaTest
+		export APPVERSION:=0.6.2
+		export PREFIX:=$(CURDIR)/output
+		export TOP:=$(CURDIR)
+		export OUT:=$(TOP)/build
+		export AR:=D:/usr/mingw/bin/ar.exe
+		export CC:=D:/usr/mingw/bin/gcc.exe
+		export CXX:=D:/usr/mingw/bin/g++.exe
+		export CFLAGS:=-Wall -ggdb -g
+		export CXXFLAGS:=-Wall -ggdb -g
+		export DEFINES:=
+		export RPATH:=
+		export BINDIR:=$(PREFIX)/bin
+		export LIBDIR:=$(PREFIX)/bin
+
+		SEARCHPATH=components/
+		SEARCHFILE=Makefile
+
+		#------------------------------------------------------------------------------
+		# list of unique logical module names;
+		modules= \
+			cxxstlib \
+			ciambad \
+			cstlib \
+			cxxshlib \
+			cprogram \
+			cmath \
+			cleaking \
+			cshlib \
+			chello \
+			cxxprogram \
+			cxxhello
+
+		# dictionary of modules names (key) and paths to modules;
+		paths= \
+			cxxstlib;components/cxxlib/static \
+			ciambad;components/ciambad \
+			cstlib;components/clib/static \
+			cxxshlib;components/cxxlib/shared \
+			cprogram;components/clib/program \
+			cmath;components/cmath \
+			cleaking;components/cleaking \
+			cshlib;components/clib/shared \
+			chello;components/chello \
+			cxxprogram;components/cxxlib/program \
+			cxxhello;components/cxxhello
+
+		# dictionary of modules names (key) and module dependencies;
+		deps= \
+			cxxstlib; \
+			ciambad;cleaking \
+			cstlib; \
+			cxxshlib; \
+			cprogram;cstlib,cshlib \
+			cmath; \
+			cleaking; \
+			cshlib; \
+			chello; \
+			cxxprogram;cxxstlib,cxxshlib \
+			cxxhello;
+
+		#------------------------------------------------------------------------------
+		# define targets
+		#------------------------------------------------------------------------------
+		build_targets=$(addprefix build_,$(modules))
+		clean_targets=$(addprefix clean_,$(modules))
+		install_targets=$(addprefix install_,$(modules))
+		uninstall_targets=$(addprefix uninstall_,$(modules))
+
+		cmds=build clean install uninstall
+		commands=$(sort $(cmds) all help find list modules $(foreach prefix,$(cmds),$($(prefix)_targets)))
+
+		.DEFAULT_GOAL:=all
+
+		#------------------------------------------------------------------------------
+		# recursive wild card implementation
+		#------------------------------------------------------------------------------
+		define rwildcard
+		$(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call rwildcard,$d/,$2))
+		endef
+
+		#------------------------------------------------------------------------------
+		# returns the value from a dictionary
+		# $1 = key, where key is the functional name of the component.
+		# $2 = dictionary
+		#------------------------------------------------------------------------------
+		define getdval
+		$(subst $(lastword $(subst _,$(sp),$1))$(dsep),$(sp),$(filter $(lastword $(subst _,$(sp),$1))$(dsep)%,$2))
+		endef
+
+		#------------------------------------------------------------------------------
+		# returns path to makefile
+		# $1 = key, where key is the functional name of the component.
+		#------------------------------------------------------------------------------
+		define getpath
+		$(call getdval, $1, $(paths))
+		endef
+
+		#------------------------------------------------------------------------------
+		# returns component dependencies.
+		# $1 = key, where key is the functional name of the component.
+		#------------------------------------------------------------------------------
+		define getdeps
+		$(addprefix $(firstword $(subst _,$(sp),$1))_,$(subst $(lsep),$(sp),$(call getdval, $1, $(deps))))
+		endef
+
+		#------------------------------------------------------------------------------
+		# creates a make recipe:
+		#      'make -r -C <path> -f <name>.mk <command>'
+		# where:
+		#      <path>     is the relative path to the component
+		#      <name>     is the name of the component
+		#      <command>  is the make action to be executed, e.g. build, install, clean
+		#
+		# $1 = key, where key is the functional recipe name (e.g. build_a).
+		#------------------------------------------------------------------------------
+		define domake
+		$1: $(call getdeps, $1)
+			$(MAKE) -r -C $(call getpath,$1) -f $(lastword $(subst _,$(sp),$1)).mk $(firstword $(subst _,$(sp),$1))
+		endef
+
+		#------------------------------------------------------------------------------
+		# return files found in given search path
+		# $1 = search path
+		# $2 = file name so search
+		#------------------------------------------------------------------------------
+		define dofind
+		$(foreach path, $(dir $(call rwildcard,$1,$2)),echo "  $(path)";)
+		endef
+
+		#------------------------------------------------------------------------------
+		# definitions of recipes (i.e. make targets)
+		#------------------------------------------------------------------------------
+		all: build
+			
+		build: $(build_targets)
+
+		clean: $(clean_targets)
+
+		install: build $(install_targets)
+
+		uninstall: $(uninstall_targets)
+
+		list:
+			@echo ""
+			@$(foreach cmd,$(commands),echo "  $(cmd)";)
+			@echo ""
+
+		modules:
+			@echo ""
+			@$(foreach module,$(modules),echo "  $(module)";)
+			@echo ""
+
+		find:
+			@echo ""
+			@echo "$@:"
+			@echo "  path=$(SEARCHPATH) file=$(SEARCHFILE)"
+			@echo ""
+			@echo "result:"
+			@$(call dofind,$(SEARCHPATH),$(SEARCHFILE))
+			@echo ""
+
+		help:
+			@echo ""
+			@echo "$(APPNAME) version $(APPVERSION)"
+			@echo ""
+			@echo "usage:"
+			@echo "  make [-r] [-s] [--jobs=N] [command] [VARIABLE=VALUE]"
+			@echo ""
+			@echo "commands:"
+			@echo "  all                                 builds all modules"
+			@echo "  build                               builds all modules"
+			@echo "  build_a                             builds module 'a' and it's dependencies"
+			@echo "  clean                               removes all build intermediates and outputs"
+			@echo "  clean_a                             cleans module 'a' and it's dependencies"
+			@echo "  install                             installs files in $(PREFIX)"
+			@echo "  install_a                           installs module 'a' and it's dependencies"
+			@echo "  uninstall                           removes all installed files from $(PREFIX)"
+			@echo "  uninstall_a                         removes module 'a' and it's dependencies"
+			@echo "  list                                list available make commands (i.e. recipes)"
+			@echo "  modules                             list logical names of all modules"
+			@echo "  find [SEARCHPATH=] [SEARCHFILE=]    searches for files default(path=$(SEARCHPATH),file=$(SEARCHFILE))"
+			@echo "  help                                displays this help message."
+			@echo ""
+			@echo "remarks:"
+			@echo "  use options '-r' and '--jobs=N' in order to improve speed"
+			@echo "  use options '-s' to decrease verbosity"
+			@echo ""
+
+		$(foreach t,$(build_targets),$(eval $(call domake,$t)))
+
+		$(foreach t,$(clean_targets),$(eval $(call domake,$t)))
+
+		$(foreach t,$(install_targets),$(eval $(call domake,$t)))
+
+		$(foreach t,$(uninstall_targets),$(eval $(call domake,$t)))
+
+		.PHONY: $(commands)
+
+Note that only the first two segments within the exported makefile contains 
+project specific data; the first contains global settings, the second contains
+list of the functional names of the modules, path to those modules and finally
+dependencies between modules (if any). The remainder of the makefile is generic
+and will be the same for each project.
+
+		
+For each single task generator (*waflib.TaskGenerator*), for instance a 
+*bld.program(...)* which has been defined within a *wscript* file somewhere in
+the build environment, a single **GNU Make** file will be generated in the same
+directory as where the task generator has been defined.
+The name of this task generator will be used as name for the exported 
+**GNU Make** file. If for instance the name of the task generator is *hello*, 
+then a **GNU Make** file named *hello.mk* will be exported.
+
+Example below presents the content of the makefile for the *chello* component
+that has been exported from the test directory::
+
+
+		#------------------------------------------------------------------------------
+		# CHIHUAHUA generated makefile
+		# version: 0.0.2
+		# waf: 1.7.15
+		#------------------------------------------------------------------------------
+
+		SHELL=/bin/sh
+
+		# commas, spaces and tabs:
+		sp:= 
+		sp+= 
+		tab:=$(sp)$(sp)$(sp)$(sp)
+		comma:=,
+
+		#------------------------------------------------------------------------------
+		# definition of build and install locations
+		#------------------------------------------------------------------------------
+		ifeq ($(TOP),)
+		TOP=$(CURDIR)
+		OUT=$(TOP)/build
+		else
+		OUT=$(subst $(sp),/,$(call rptotop) build $(call rpofcomp))
+		endif
+
+		PREFIX?=$(HOME)
+		BINDIR?=$(PREFIX)/bin
+		LIBDIR?=$(PREFIX)/lib
+
+		#------------------------------------------------------------------------------
+		# component data
+		#------------------------------------------------------------------------------
+		BIN=chello.exe
+		OUTPUT=$(OUT)/$(BIN)
+
+		# REMARK: use $(wildcard src/*.c) to include all sources.
+		SOURCES= \
+			src/hello.c
+
+		OBJECTS=$(SOURCES:.c=.1.o)
+
+		DEFINES+=HELLO_VERSION='"1.2.3"'
+		DEFINES:=$(addprefix -D,$(DEFINES))
+
+		INCLUDES+= \
+			./include
+
+		HEADERS:=$(foreach inc,$(INCLUDES),$(wildcard $(inc)/*.h))
+		INCLUDES:=$(addprefix -I,$(INCLUDES))
+
+		CFLAGS+=
+
+		LINKFLAGS+=
+
+		RPATH+=
+		RPATH:= $(addprefix -Wl$(comma)-rpath$(comma),$(RPATH))
+
+		LIBPATH_ST+=
+		LIBPATH_ST:= $(addprefix -L,$(LIBPATH_ST))
+
+		LIB_ST+=
+		LIB_ST:= $(addprefix -l,$(LIB_ST))
+
+		LIBPATH_SH+=
+		LIBPATH_SH:= $(addprefix -L,$(LIBPATH_SH))
+
+		LINK_ST= -Wl,-Bstatic $(LIBPATH_ST) $(LIB_ST)
+
+		LIB_SH+=
+		LIB_SH:= $(addprefix -l,$(LIB_SH))
+
+		LINK_SH= -Wl,-Bdynamic $(LIBPATH_SH) $(LIB_SH)
+
+		#------------------------------------------------------------------------------
+		# returns the relative path of this component from the top directory
+		#------------------------------------------------------------------------------
+		define rpofcomp
+		$(subst $(subst ~,$(HOME),$(TOP))/,,$(CURDIR))
+		endef
+
+		#------------------------------------------------------------------------------
+		# returns the relative path of this component to the top directory
+		#------------------------------------------------------------------------------
+		define rptotop
+		$(foreach word,$(subst /,$(sp),$(call rpofcomp)),..)
+		endef
+
+		#------------------------------------------------------------------------------
+		# define targets
+		#------------------------------------------------------------------------------
+		commands= build clean install uninstall all
+
+		.DEFAULT_GOAL=all
+
+		#------------------------------------------------------------------------------
+		# definitions of recipes (i.e. make targets)
+		#------------------------------------------------------------------------------
+		all: build
+			
+		build: $(OBJECTS)
+			$(CC) $(LINKFLAGS) $(addprefix $(OUT)/,$(OBJECTS)) -o $(OUTPUT) $(RPATH) $(LINK_ST) $(LINK_SH)
+
+		clean:
+			$(foreach obj,$(OBJECTS),rm -f $(OUT)/$(obj);)	
+			rm -f $(OUTPUT)
+
+		install: build
+			mkdir -p $(BINDIR)
+			cp $(OUTPUT) $(BINDIR)
+			
+		uninstall:
+			rm -f $(BINDIR)/$(BIN)
+
+		$(OBJECTS): $(HEADERS)
+			mkdir -p $(OUT)/$(dir $@)
+			$(CC) $(CFLAGS) $(INCLUDES) $(DEFINES) $(subst .1.o,.c,$@) -c -o $(OUT)/$@
+
+		.PHONY: $(commands)
+
+		
+Note that only one segment of this file, the named *component* *data* contains 
+project specific data; the remainder of this makefile is generic.
+
+		
+Example below presents an overview of an environment in which **GNU** 
+**Makefiles** already have been exported::
+
+        .
+        ├── components
+        │   └── clib
+        │       ├── program
+        │       │   ├── cprogram.mk
+        │       │   └── wscript
+        │       ├── shared
+        │       │   ├── cshlib.mk
+        │       │   └── wscript
+        │       └── static
+        │           ├── cstlib.mk
+        │           └── wscript
+        │
+        ├── Makefile
+        └── wscript
+
+Usage
+-----
+Tasks can be exported to makefiles using the *export* command, as shown in the
+example below::
+
+        $ waf export --makefile
+
+All exported makefiles can be removed in one go using the *export* *cleanup*
+option::
+
+        $ waf export --cleanup --makefile
+
+'''
+
 import os
 import re
 from waflib import Utils, Node, Tools
