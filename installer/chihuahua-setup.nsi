@@ -17,7 +17,7 @@
 !define CPPCHECK_VER		"1.64"
 !define NSIS_VER			"3.0a2"
 !define CODEBLOCKS_VER		"13.12"
-!define WAF_VER				"1.7.15"
+!define WAF_VER				"1.7.16"
 
 !define CPPCHECK_PKG		"cppcheck-${CPPCHECK_VER}-x86-Setup.msi"
 !define MINGW_PKG			"mingw-get-setup.exe"
@@ -136,11 +136,8 @@ Section "PyTools" Section2
 		Abort
 	${EndIf}
 
-	SetOutPath "$INSTDIR\packages\waftools\waftools"
-	File ..\modules\waftools\*.py
-	SetOutPath "$INSTDIR\packages\waftools"
-	File ..\modules\setup.py
-	nsExec::ExecToLog 'python setup.py install'
+	SetOutPath "$INSTDIR\packages"	
+	nsExec::ExecToLog 'pip install waftools'
 	Pop $0
 	${If} $0 != 0
 		MessageBox MB_OK "Failed to install waftools."

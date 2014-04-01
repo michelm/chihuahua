@@ -1,6 +1,6 @@
 !define VER_MAJOR			1
 !define VER_MINOR			7
-!define VER_PATCH			15
+!define VER_PATCH			16
 !define VERSION     		"${VER_MAJOR}.${VER_MINOR}.${VER_PATCH}"
 !define REGKEY      		"Software\Waf"
 !define UNINSTALL_REGKEY	"Software\Microsoft\Windows\CurrentVersion\Uninstall\Waf"
