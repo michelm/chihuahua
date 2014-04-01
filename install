@@ -5,7 +5,7 @@ DOWNLOADS=$TOP/downloads
 PREFIX=~/.local
 
 RELEASE=`cat /etc/issue`
-VERSION=1.7.15
+VERSION=1.7.16
 WAFBOOK=book_17
 
 PYTHON=python
@@ -18,9 +18,11 @@ if [[ $RELEASE == Fedora* ]]
 then
 	sudo yum -y groupinstall "C Development Tools and Libraries"
 	sudo yum -y install \
-		wget git meld codeblocks codeblocks-libs \
-		python-pygments cppcheck \
-		mingw32-gcc
+		wget git meld \
+		codeblocks codeblocks-libs \
+		python-pygments python-pip \
+		cppcheck \
+		mingw32-gcc mingw32-c++ mingw32-nsis
 
 else
 	echo "System \'$RELEASE\' not supported (yet)!"
@@ -88,12 +90,6 @@ chmod -v 777 $PREFIX/bin/waf
 rm -rf $DOWNLOADS/waf-$VERSION
 
 #====================================================================
-# CWW: install python modules
-#====================================================================
-cd $TOP
-$PYTHON setup.py install --prefix=$PREFIX --record .files_waftools
-
-#====================================================================
 # WAF: install wafbook
 #====================================================================
 cp -v $DOWNLOADS/waf.pdf $PREFIX/share/waf/doc
@@ -108,5 +104,9 @@ then
 	exec /bin/bash
 fi
 
+#====================================================================
+# PIP: install python modules
+#====================================================================
+pip install waftools
 
 
