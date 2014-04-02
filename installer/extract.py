@@ -3,7 +3,7 @@
 
 '''
 DESCRIPTION:
-Extracts compressed tar.gz or tar.bz2 archives.
+Extracts compressed tar.gz, tar.bz2 or zip archives.
 
 USAGE:
 	python extract.py [options]
@@ -19,15 +19,45 @@ OPTIONS:
 
 '''
 
-
+import os
 import sys
 import getopt
 import tarfile
+import zipfile
 
 
 def usage():
 	print(__doc__)
 
+
+def unzip(zip, path):
+	z = zipfile.ZipFile(zip)
+	for name in z.namelist():
+		(dirname, filename) = os.path.split(name)
+		if filename == '': # directory
+			dir = os.path.join(path, dirname)
+			if not os.path.exists(dir):
+				os.mkdir(dir)
+		else: # file
+			fname = os.path.join(path, name)
+			print(fname)
+			fd = open(fname, 'wb')
+			fd.write(z.read(name))
+			fd.close()			
+	z.close()
+
+
+def untar(tar, path):
+	if name.endswith('.gz'):
+		compression = 'gz'
+	else:
+		compression = 'bz2'
+	
+	t = tarfile.open(name, 'r:%s' % compression)
+	for member in t.getmembers():
+		print(member.name)
+		t.extract(member, path=path)
+	
 
 if __name__ == "__main__":
 	try:
@@ -39,7 +69,6 @@ if __name__ == "__main__":
 
 	name = None
 	path = '.'
-	compression = 'bz2'
 
 	for o, a in opts:
 		if o in ('-h', '--help'):
@@ -54,10 +83,7 @@ if __name__ == "__main__":
 		usage()
 		sys.exit(2)
 	
-	if name.endswith('.gz'):
-		compression = 'gz'
-
-	t = tarfile.open(name, 'r:%s' % compression)
-	for member in t.getmembers():
-		print(member.name)
-		t.extract(member, path=path)
+	if name.endswith('.zip'):
+		unzip(name, path)
+	else:
+		untar(name, path)

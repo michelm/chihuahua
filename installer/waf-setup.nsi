@@ -99,7 +99,7 @@ Section "-Install" Section0
 		Abort
 	${EndIf}
 	
-	RMDir /r "$INSTDIR\_tmp"	
+	RMDir /r "$INSTDIR\_tmp"
 SectionEnd
 
 
