@@ -7,7 +7,7 @@
 
 !define VER_MAJOR			0
 !define VER_MINOR			1
-!define VER_PATCH			2
+!define VER_PATCH			3
 !define VERSION     		"${VER_MAJOR}.${VER_MINOR}.${VER_PATCH}"
 !define REGKEY      		"Software\ChiHuaHua"
 !define UNINSTALL_REGKEY	"Software\Microsoft\Windows\CurrentVersion\Uninstall\ChiHuaHua"

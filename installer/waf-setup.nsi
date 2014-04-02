@@ -71,8 +71,8 @@ Section "-Install" Section0
 	DetailPrint "Detected python interpreter: $1"
 
 	DetailPrint "Downloading waf package..."
-	NSISdl::download https://waf.googlecode.com/files/waf-${VERSION}.tar.bz2 "waf-${VERSION}.tar.bz2"	
-
+	NSISdl::download http://ftp.waf.io/pub/release/waf-${VERSION}.tar.bz2 "waf-${VERSION}.tar.bz2"
+	
 	DetailPrint "Extracting waf package..."	
 	nsExec::ExecToLog "python extract.py --name=waf-${VERSION}.tar.bz2"
 	Pop $0
