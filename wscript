@@ -78,15 +78,18 @@ def configure(conf):
 
 
 def build(bld):
-	def get_scripts(top, script):
-		scripts = []
-		for cwd, _dirs, files in os.walk(top):
-			if script not in files:
-				continue
-			if any(cwd.startswith(path) for path in scripts):
-				if any(cwd.count(os.sep) != s.count(os.sep) for s in scripts):
+	def get_scripts(top, name):
+		locations = []
+		for cwd, _, files in os.walk(top):
+			for f in files:
+				if os.path.basename(f) != name:
 					continue
-			scripts.append(cwd)
+				locations.append(cwd)				
+		scripts = []
+		for loc in locations:
+			if any(os.path.dirname(loc).endswith(t) for t in locations):
+				continue
+			scripts.append(loc)
 		return scripts
 
 	scripts = get_scripts('components', 'wscript')
