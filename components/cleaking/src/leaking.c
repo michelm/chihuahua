@@ -1,4 +1,4 @@
-
+#include "stdlib.h"
 #include <leaking.h>
 
 void leaking() {

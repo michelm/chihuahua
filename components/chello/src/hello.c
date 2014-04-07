@@ -1,7 +1,13 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#ifdef _WIN32
+#include <direct.h>
+#define getcwd _getcwd
+#else
 #include <unistd.h>
+#endif
+
 #include <hello.h>
 
 int main(int argc, char* argv[])

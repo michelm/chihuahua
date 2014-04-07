@@ -15,4 +15,8 @@ Makefile
 .project
 .pydevproject
 
-
+*.vcproj
+*.sln
+*.ncb
+*.suo
+*.user

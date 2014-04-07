@@ -1,6 +1,6 @@
 #include <bar.h>
 
-char* bar()
+FREGGELSPEC char* bar()
 {
 	return "beyond all recognition";
 }
