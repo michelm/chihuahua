@@ -20,9 +20,11 @@ Configure::
 	waf configure
 
 Build::
+
 	waf build
 
 Export::
+
 	waf export --export-makefile
 
 See command line help for additional information (waf --help).
