@@ -1,20 +1,28 @@
 chihuahua
 =========
-Test environment for exporting data from projects using the WAF meta build 
-system (see http://code.google.com/p/waf) into other formats such as:
-	- (gnu) makefiles
-	- code::blocks projects and workspaces
-	- cmake
+Windows setup for a concrete build environment using the **Waf** meta build 
+system.
+Installs following tools and packages:
+
+	- Python
+	- Pip
+	- Pyhon Pygments
+	- MinGW
+	- CppCheck
+	- Code::Blocks
+	- Waf
+	- WafTools
 
 usage
 -----
-Configure:
+Configure::
+
 	waf configure
 
-Build:
+Build::
 	waf build
 
-Export:
+Export::
 	waf export --export-makefile
 
 See command line help for additional information (waf --help).

@@ -12,8 +12,8 @@ top = '.'
 out = 'build'
 prefix = 'output'
 
-VERSION = '0.6.2'
-APPNAME = 'ChiHuaHuaTest'
+VERSION = '0.1.4'
+APPNAME = 'chihuahua'
 
 POKY = {}
 if 'linux' in sys.platform:
